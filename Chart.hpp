@@ -1,15 +1,17 @@
 #pragma once
 
 #include "../misc/Canvas.hpp"
+#include "../misc/EGA_COLORS.hpp"
 
 #include "../trading/Candle.hpp"
 #include "../trading/intervalToSecond.hpp"
 
+
 #include <FL/Fl.H>          // Main FLTK header
 
 
-const unsigned int CHART_GREEN = FL_DARK_GREEN;
-const unsigned int CHART_RED = FL_DARK_RED;
+const unsigned int CHART_GREEN = EGA_GREEN;
+const unsigned int CHART_RED = EGA_RED;
 
 const int CHART_SPACING_TOP = 30;
 const int CHART_SPACING_BOTTOM = 30;

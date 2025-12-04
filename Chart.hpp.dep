@@ -1,4 +1,5 @@
 /mnt/windows/cpp/cpptools/misc/Canvas.hpp
+/mnt/windows/cpp/cpptools/misc/EGA_COLORS.hpp
 /mnt/windows/cpp/cpptools/trading/Candle.hpp
 /mnt/windows/cpp/cpptools/misc/datetime_defs.hpp
 /mnt/windows/cpp/cpptools/misc/sec_to_datetime.hpp

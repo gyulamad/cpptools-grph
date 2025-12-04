@@ -7,6 +7,7 @@
 /mnt/windows/cpp/cpptools/misc/get_time_ms.hpp
 /mnt/windows/cpp/cpptools/misc/default_get_time_ms.hpp
 /mnt/windows/cpp/cpptools/grph/Chart.hpp
+/mnt/windows/cpp/cpptools/misc/EGA_COLORS.hpp
 /mnt/windows/cpp/cpptools/trading/intervalToSecond.hpp
 /mnt/windows/cpp/cpptools/misc/ERROR.hpp
 /mnt/windows/cpp/cpptools/misc/F.hpp
