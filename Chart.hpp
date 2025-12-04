@@ -6,12 +6,13 @@
 #include "../trading/Candle.hpp"
 #include "../trading/intervalToSecond.hpp"
 
+#include "TimePoint.hpp"
 
 #include <FL/Fl.H>          // Main FLTK header
 
-
-const unsigned int CHART_GREEN = EGA_GREEN;
-const unsigned int CHART_RED = EGA_RED;
+const unsigned int CHART_COLOR_BULLISH = EGA_GREEN;
+const unsigned int CHART_COLOR_BEARISH = EGA_RED;
+const unsigned int CHART_COLOR_PLOTTER = EGA_LIGHT_GRAY;
 
 const int CHART_SPACING_TOP = 30;
 const int CHART_SPACING_BOTTOM = 30;
@@ -36,28 +37,43 @@ public:
 
     virtual ~Chart() {}
 
-    void showCandles(
-        const vector<Candle>& candles,
-        const string& interval,
-        unsigned int bullishColor = CHART_GREEN, 
-        unsigned int bearishColor = CHART_RED,
-        double shoulderSpacing = 0.1
-    ) {
-        // Fit the chart bounds to strech candles...
+    void resetBounds() {
         valueFirst = numeric_limits<time_sec>::max();
         valueLast = numeric_limits<time_sec>::min();
         valueUpper = -numeric_limits<float>::infinity();
         valueLower = numeric_limits<float>::infinity();
+    }
+
+    void fitToCandles(const vector<Candle>& candles) {
         for (const Candle& candle: candles) {
-            time_sec candleTime = candle.getTime();
-            float candleLow = candle.getLow();
-            float candleHigh = candle.getHigh();
+            const time_sec candleTime = candle.getTime();
+            const float candleLow = candle.getLow();
+            const float candleHigh = candle.getHigh();
             valueFirst = candleTime < valueFirst ? candleTime : valueFirst;
             valueLast = candleTime > valueLast ? candleTime : valueLast;
             valueLower = candleLow < valueLower ? candleLow : valueLower;
             valueUpper = candleHigh > valueUpper ? candleHigh : valueUpper;
         }
+    }
+    
+    void fitToPoints(const vector<TimePoint>& points) {
+        for (const TimePoint& point: points) {
+            const time_sec pointTime = point.getTime();
+            const float pointValue = point.getValue();
+            valueFirst = valueFirst < pointTime ? valueFirst : pointTime;
+            valueLast = valueLast > pointTime ? valueLast : pointTime;
+            valueLower = valueLower < pointValue ? valueLower : pointValue;
+            valueUpper = valueUpper > pointValue ? valueUpper : pointValue;
+        }
+    }
 
+    void showCandles(
+        const vector<Candle>& candles,
+        const string& interval,
+        unsigned int bullishColor = CHART_COLOR_BULLISH, 
+        unsigned int bearishColor = CHART_COLOR_BEARISH,
+        double shoulderSpacing = 0.1
+    ) {
         //  Calculate the candle body with in pixels (double) from interval
         time_sec intervalSeconds = intervalToSecond(interval); // Convert interval string to seconds
         time_sec totalSeconds = valueLast - valueFirst; // Calculate the total time span of the chart        
@@ -100,6 +116,46 @@ public:
 
     }
 
+    void showPoints(
+        const vector<TimePoint>& points,
+        unsigned int color = CHART_COLOR_PLOTTER
+    ) {
+        // If we don't have a valid time range or drawable width, bail out
+        if (points.size() < 2) return;
+        if (valueLast < valueFirst) return;
+        int widthPx = innerWidth();
+        if (widthPx <= 0) return;
+
+        // How many seconds correspond to one pixel (computed once)
+        double secondsPerPixel = static_cast<double>(valueLast - valueFirst) / static_cast<double>(widthPx);
+
+        time_sec t1, t2;
+        float v1, v2;
+        bool first = true;
+
+        const int lod = 1; // number of pixels to skip
+        double lodSeconds = lod * secondsPerPixel; // computed once, in seconds
+
+        for (const TimePoint& point: points) {
+            if (first) {
+                t1 = point.getTime();
+                v1 = point.getValue();
+                first = false;
+                continue;
+            }
+            t2 = point.getTime();
+            
+            // compare time difference in seconds
+            time_sec dt = t2 > t1 ? t2 - t1 : t1 - t2;
+            if (dt < lodSeconds) continue;
+
+            v2 = point.getValue();
+            showLine(t1, v1, t2, v2, color);
+            t1 = t2;
+            v1 = v2;
+        }
+    }
+
 protected:
     // Helper methods to get inner drawing area dimensions
     int innerWidth() const {
@@ -121,8 +177,8 @@ protected:
     void showCandle(
         const Candle& candle, 
         double candleBodyWidth, 
-        unsigned int bullishColor = CHART_GREEN, 
-        unsigned int bearishColor = CHART_RED,
+        unsigned int bullishColor = CHART_COLOR_BULLISH, 
+        unsigned int bearishColor = CHART_COLOR_BEARISH,
         double shoulderSpacing = 0.1
     ) {
         time_sec time = candle.getTime();
@@ -154,8 +210,8 @@ protected:
     void showCandleAsLine(
         const Candle& candle,
         double candleBodyWidth, 
-        unsigned int bullishColor = CHART_GREEN, 
-        unsigned int bearishColor = CHART_RED
+        unsigned int bullishColor = CHART_COLOR_BULLISH, 
+        unsigned int bearishColor = CHART_COLOR_BEARISH
     ) {
         time_sec candleTime = candle.getTime();
         showLine(
