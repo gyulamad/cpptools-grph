@@ -138,11 +138,14 @@ protected:
 
 class UI_Window: public UI_Element {
 public:
-    UI_Window(int left, int top, int width, int height, string title):
+    UI_Window(int left, int top, int width, int height, string title = ""):
         UI_Element(top, left, width, height), title(title) {}
     
-    UI_Window(int left, int top, int width, int height, const char* title):
-        UI_Window(left, top, width, height, string(title)) {}
+    UI_Window(int left, int top, int width, int height, const char* title = nullptr):
+        UI_Window(left, top, width, height, string(title ? title : "")) {}
+
+    UI_Window(int width, int height, const char* title = nullptr):
+        UI_Window(0, 0, width, height, string(title ? title : "")) {}
 
     virtual ~UI_Window() {}
 
