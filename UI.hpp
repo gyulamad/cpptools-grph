@@ -61,6 +61,7 @@ feel free to contribute with an issue or pull request to this repository!
 #include <functional>
 
 #include "Fl_ChartBox.hpp"
+#include "../misc/array_splice.hpp"
 
 using namespace std;
 
@@ -132,6 +133,20 @@ public:
         return elem;
     }
 
+    template<typename T>
+    size_t find(T* elem) {
+        for (size_t n = 0; n < elems.size(); n++)
+            if (elems[n].first == elem) return n;
+        throw ERROR("UI Element is not found!");
+    }
+
+    template<typename T>
+    void remove(T* elem) {
+        size_t n = find(elem);
+        elems[n].second(elems[n].first);
+        array_splice(elems, n, 1);
+    }
+
     void build(UI_Element* root) {
         SAFE(root)->build();
     }
@@ -140,8 +155,19 @@ protected:
     vector<pair<UI_Element*, function<void(void*)>>> elems;
 };
 
+
+
 class UI_Window: public UI_Element {
 public:
+
+    struct IdleData {
+        void (*func)(void*);
+        void* data;
+        bool once;
+        void (*wrap)(void*);
+        bool first = true;
+    };
+
     UI_Window(int left, int top, int width, int height, string title = ""):
         UI_Element(top, left, width, height), title(title) {}
     
@@ -173,17 +199,35 @@ public:
         return window;
     }
 
-    int run() {
+    int run(void idle(void*) = nullptr, void* data = nullptr, bool once = false) {
         SAFE(window);
-        if (argc) window->show(argc, argv);
+        if (argc && argv) window->show(argc, argv);
         else window->show();
+        
+        if (idle) {
+            idle_data.func = idle;
+            idle_data.data = data;
+            idle_data.once = once;
+            idle_data.wrap = [](void* idle_data_void) {
+                IdleData* idle_data = (IdleData*)idle_data_void;
+                if (idle_data->first) { // this is a hack since remove_idle doesn't really seems to be working
+                    idle_data->func(idle_data->data);
+                    if (idle_data->once) idle_data->first = false;
+                }
+            };
+            Fl::add_idle(idle_data.wrap, (void*)&idle_data);
+        }
+
         return Fl::run();
     }
 
-    int run(int argc, char **argv) {
+    int run(
+        int argc, char **argv, 
+        void idle(void*) = nullptr, void* data = nullptr, bool once = false
+    ) {
         this->argc = argc;
         this->argv = argv;
-        return run();
+        return run(idle, data, once);
     }
 
     Fl_Window* flwindow() const { return SAFE(window); }
@@ -192,11 +236,17 @@ public:
 protected:
     string title;
     int argc = 0;
-    char **argv;
+    char **argv = nullptr;
 
     Fl_Window* window = nullptr;
     Fl_Scroll* scroll = nullptr;
+    
+private:
+
+    static IdleData idle_data;
+
 };
+UI_Window::IdleData UI_Window::idle_data;
 
 class UI_ScrollBox: public UI_Element {
 public:
@@ -283,6 +333,12 @@ public:
             add(chartBox);
             nextChartTop += chartHeight + spacing;
         }
+    }
+
+    void removeCharts(UI_Manager& ui) {
+        for (UI_ChartBox* chartBox: chartBoxes)
+            ui.remove(chartBox);
+        chartBoxes.clear();
     }
 
     void showCandleSeries(const CandleSeries& candleSeries) {
