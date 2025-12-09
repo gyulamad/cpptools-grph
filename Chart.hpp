@@ -10,6 +10,10 @@
 
 #include <FL/Fl.H>          // Main FLTK header
 
+#include <cmath>
+
+using namespace std;
+
 const unsigned int CHART_COLOR_BULLISH = EGA_GREEN;
 const unsigned int CHART_COLOR_BEARISH = EGA_RED;
 const unsigned int CHART_COLOR_PLOTTER = EGA_LIGHT_GRAY;
@@ -48,7 +52,9 @@ public:
         for (const Candle& candle: candles) {
             const time_sec candleTime = candle.getTime();
             const float candleLow = candle.getLow();
+            if (isnan(candleLow)) continue;
             const float candleHigh = candle.getHigh();
+            if (isnan(candleHigh)) continue;
             valueFirst = candleTime < valueFirst ? candleTime : valueFirst;
             valueLast = candleTime > valueLast ? candleTime : valueLast;
             valueLower = candleLow < valueLower ? candleLow : valueLower;
@@ -60,6 +66,7 @@ public:
         for (const TimePoint& point: points) {
             const time_sec pointTime = point.getTime();
             const float pointValue = point.getValue();
+            if (isnan(pointValue)) continue;
             valueFirst = valueFirst < pointTime ? valueFirst : pointTime;
             valueLast = valueLast > pointTime ? valueLast : pointTime;
             valueLower = valueLower < pointValue ? valueLower : pointValue;
@@ -83,17 +90,17 @@ public:
         // Select the right level of details (LOD)
         if (candleBodyWidth > 5) { // Show each candles...
             for (const Candle& candle: candles) 
-                showCandle(
+                if (!showCandle(
                     candle, candleBodyWidth, 
                     bullishColor, bearishColor, 
                     shoulderSpacing
-                );
+                )) continue;
             return;
         }
 
         if (candleBodyWidth >= 1) { // Show only a representing line
             for (const Candle& candle: candles) 
-                showCandleAsLine(candle, candleBodyWidth, bullishColor, bearishColor);
+                if (!showCandleAsLine(candle, candleBodyWidth, bullishColor, bearishColor)) continue;
             return;
         }
 
@@ -109,7 +116,7 @@ public:
             float high = prevCandle.getHigh();
             if (thisCandle.getHigh() > high) high = thisCandle.getHigh();                        
             Candle candle(thisCandle.getTime(), open, high, low, close, thisCandle.getVolume());
-            showCandleAsLine(candle, candleBodyWidth, bullishColor, bearishColor);
+            if (!showCandleAsLine(candle, candleBodyWidth, bullishColor, bearishColor)) continue;
 
             prevCandle = thisCandle;
         }
@@ -150,7 +157,7 @@ public:
             if (dt < lodSeconds) continue;
 
             v2 = point.getValue();
-            showLine(t1, v1, t2, v2, color);
+            if (!showLine(t1, v1, t2, v2, color)) continue;
             t1 = t2;
             v1 = v2;
         }
@@ -174,7 +181,8 @@ protected:
         return y + spacingTop;
     }
 
-    void showCandle(
+    [[nodiscard]] 
+    bool showCandle(
         const Candle& candle, 
         double candleBodyWidth, 
         unsigned int bullishColor = CHART_COLOR_BULLISH, 
@@ -182,15 +190,19 @@ protected:
         double shoulderSpacing = 0.1
     ) {
         time_sec time = candle.getTime();
-        float open  = candle.getOpen();
-        float high  = candle.getHigh();
-        float low   = candle.getLow();
+        float open = candle.getOpen();
+        if (isnan(open)) return false;
+        float high = candle.getHigh();
+        if (isnan(high)) return false;
+        float low = candle.getLow();
+        if (isnan(low)) return false;
         float close = candle.getClose();
+        if (isnan(close)) return false;
 
         unsigned int color = (close > open) ? bullishColor : bearishColor;
 
         // Wick
-        showLine(time, high, time, low, color);
+        if (!showLine(time, high, time, low, color)) return false;
 
         // Convert time to pixel coordinates
         int centerX = timeToX(time);
@@ -205,32 +217,46 @@ protected:
         int heightPx = bottom - top;
 
         canvas.rectf(left, top, widthPx, heightPx, color);
+        return true;
     }
 
-    void showCandleAsLine(
+    [[nodiscard]] 
+    bool showCandleAsLine(
         const Candle& candle,
         double candleBodyWidth, 
         unsigned int bullishColor = CHART_COLOR_BULLISH, 
         unsigned int bearishColor = CHART_COLOR_BEARISH
     ) {
         time_sec candleTime = candle.getTime();
-        showLine(
+        float open = candle.getOpen();
+        if (isnan(open)) return false;
+        float high = candle.getHigh();
+        if (isnan(high)) return false;
+        float low = candle.getLow();
+        if (isnan(low)) return false;
+        float close = candle.getClose();
+        if (isnan(close)) return false;
+        if (!showLine(
             candleTime, candle.getLow(), 
             candleTime + candleBodyWidth, candle.getHigh(), 
             candle.getOpen() < candle.getClose() ? bullishColor : bearishColor
-        );
+        )) return false;
+        return true;
     }
 
-    void showLine(
+    [[nodiscard]]
+    bool showLine(
         time_sec x1, float y1,
         time_sec x2, float y2,
         unsigned int color
     ) {
+        if (isnan(y1) || isnan(y2)) return false;
         canvas.line(
             timeToX(x1), valueToY(y1), 
             timeToX(x2), valueToY(y2), 
             color
         );
+        return true;
     }
 
     // Project time_sec value to x coordinate on canvas (with padding)

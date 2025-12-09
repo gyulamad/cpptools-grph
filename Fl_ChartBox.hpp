@@ -5,16 +5,56 @@
 
 #include "Chart.hpp"
 
-struct CandleSeries {
-    vector<Candle> candles;
-    string interval;
-    unsigned int bullishColor = CHART_COLOR_BULLISH;
-    unsigned int bearishColor = CHART_COLOR_BEARISH;
-    double shoulderSpacing = 0.1;
+class CandleSeries {
+public:
+    CandleSeries(
+        const vector<Candle>& candles,
+        const string& interval,
+        unsigned int bullishColor = CHART_COLOR_BULLISH,
+        unsigned int bearishColor = CHART_COLOR_BEARISH,
+        double shoulderSpacing = 0.1
+    ):
+        candles(candles),
+        interval(interval),
+        bullishColor(bullishColor),
+        bearishColor(bearishColor),
+        shoulderSpacing(shoulderSpacing)
+    {}
+
+    virtual ~CandleSeries() {}
+
+    const vector<Candle>& getCandlesCRef() const { return candles; }
+    const string& getIntervalCRef() const { return interval; }
+    unsigned int getBullishColor() const { return bullishColor; }
+    unsigned int getBearishColor() const { return bearishColor; }
+    double getShoulderSpacing() const { return shoulderSpacing; }
+
+protected:
+    const vector<Candle>& candles;
+    const string& interval;
+    unsigned int bullishColor;
+    unsigned int bearishColor;
+    double shoulderSpacing;
 };
 
-struct TimePointSeries {
-    vector<TimePoint> points;
+class TimePointSeries {
+public:
+    TimePointSeries(
+        vector<TimePoint>& points,
+        unsigned int color = CHART_COLOR_PLOTTER
+    ):
+        points(points),
+        color(color)
+    {}
+
+    virtual ~TimePointSeries() {}
+
+    vector<TimePoint>& getPointsRef() { return points; }
+    const vector<TimePoint>& getPointsCRef() const { return points; }
+    unsigned int getColor() const { return color; }
+
+protected:
+    vector<TimePoint>& points;
     unsigned int color = CHART_COLOR_PLOTTER;
 };
 
@@ -39,39 +79,24 @@ public:
     {}
 
     void clearAll() {
-        clearCandles();
-        clearPoints();
+        clearCandlesSeries();
+        clearPointsSeries();
     }
 
-    void clearCandles() {
-        candles.clear();
+    void clearCandlesSeries() {
+        candlesSeries.clear();
     }
 
-    void addCandles(
-        const vector<Candle>& candles, 
-        const string& interval,
-        unsigned int bullishColor = CHART_COLOR_BULLISH,
-        unsigned int bearishColor = CHART_COLOR_BEARISH,
-        double shoulderSpacing = 0.1
-    ) {
-        this->candles.push_back({ 
-            candles, 
-            interval, 
-            bullishColor, 
-            bearishColor, 
-            shoulderSpacing
-        });
+    void addCandleSeries(const CandleSeries& candleSeries) {
+        candlesSeries.push_back(candleSeries);
     }
 
-    void clearPoints() {
-        points.clear();
+    void clearPointsSeries() {
+        pointsSeries.clear();
     }
 
-    void addPoints(
-        const vector<TimePoint>& points, 
-        unsigned int color = CHART_COLOR_PLOTTER
-    ) {
-        this->points.push_back({ points, color });
+    void addPointSeries(const TimePointSeries pointSeries) {
+        pointsSeries.push_back(pointSeries);
     }
 
     void draw() override {
@@ -79,21 +104,30 @@ public:
         
         // Fit the chart to the contents
         chart.resetBounds();
-        for (const CandleSeries& content: candles)
-            chart.fitToCandles(content.candles);
-        for (const TimePointSeries& content: points)
-            chart.fitToPoints(content.points);
+        for (const CandleSeries& candleSeries: candlesSeries)
+            chart.fitToCandles(candleSeries.getCandlesCRef());
+        for (const TimePointSeries& pointSeries: pointsSeries)
+            chart.fitToPoints(pointSeries.getPointsCRef());
 
         // Now draw the chart contents        
-        for (const CandleSeries& content: candles)
-            chart.showCandles(content.candles, content.interval, content.bullishColor, content.bearishColor, content.shoulderSpacing);
-        for (const TimePointSeries& content: points)
-            chart.showPoints(content.points, content.color);
+        for (const CandleSeries& candleSeries: candlesSeries)
+            chart.showCandles(
+                candleSeries.getCandlesCRef(), 
+                candleSeries.getIntervalCRef(), 
+                candleSeries.getBullishColor(),
+                candleSeries.getBearishColor(),
+                candleSeries.getShoulderSpacing()
+            );
+        for (const TimePointSeries& pointSeries: pointsSeries)
+            chart.showPoints(
+                pointSeries.getPointsCRef(), 
+                pointSeries.getColor()
+            );
     }
 
 private:
     Chart chart;
 
-    vector<CandleSeries> candles;
-    vector<TimePointSeries> points;
+    vector<CandleSeries> candlesSeries;
+    vector<TimePointSeries> pointsSeries;
 };

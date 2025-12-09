@@ -132,6 +132,10 @@ public:
         return elem;
     }
 
+    void build(UI_Element* root) {
+        SAFE(root)->build();
+    }
+
 protected:
     vector<pair<UI_Element*, function<void(void*)>>> elems;
 };
@@ -196,35 +200,36 @@ protected:
 
 class UI_ScrollBox: public UI_Element {
 public:
-    using UI_Element::UI_Element;
+    UI_ScrollBox(
+        int left, int top, int width, int height, 
+        int scrollbarThickness = 15
+    ):
+        UI_Element(left, top, width, height),
+        scrollbarThickness(scrollbarThickness)
+    {}
     virtual ~UI_ScrollBox() {}
 
     Fl_Widget* build() override {
-        // checkBuilt(group);
         checkBuilt(scroll);
 
         scroll = createFl<Fl_Scroll>(getAbsoluteLeft(), getAbsoluteTop(), width, height);
 
-        Fl_Box* spacing = new Fl_Box(getAbsoluteLeft(), getAbsoluteTop(), 0, 0);
-        
-        // spacing->box(FL_FLAT_BOX);
-        // spacing->color(EGA_RED);
-        // spacing->color2(EGA_RED);
+        Fl_Box* spacing = new Fl_Box(getAbsoluteLeft(), getAbsoluteTop(), width - scrollbarThickness, height);
 
         scroll->add(spacing);
         scroll->box(FL_DOWN_BOX);
-        scroll->type(Fl_Scroll::BOTH);
+        scroll->type(Fl_Scroll::BOTH_ALWAYS);
+        scroll->scrollbar_size(scrollbarThickness);
         
         buildFl(scroll);
         return scroll;
     }
 
-    // Fl_Group* flgroup() const { return SAFE(group); }
     Fl_Scroll* flscroll() const { return SAFE(scroll); }
 
 protected:
-    Fl_Group* group = nullptr;
     Fl_Scroll* scroll = nullptr;
+    int scrollbarThickness;
 };
 
 class UI_ChartBox: public UI_Element {
@@ -238,31 +243,53 @@ public:
         return chart;
     }
 
-    void addCandles(
-        const vector<Candle>& candles, 
-        const string& interval,
-        unsigned int bullishColor = CHART_COLOR_BULLISH,
-        unsigned int bearishColor = CHART_COLOR_BEARISH,
-        double shoulderSpacing = 0.1
-    ) {
-        flchart()->addCandles(
-            candles, 
-            interval, 
-            bullishColor, 
-            bearishColor, 
-            shoulderSpacing
-        );
+    void addCandleSeries(const CandleSeries& candleSeries) {
+        flchart()->addCandleSeries(candleSeries);
     }
 
-    void addPoints(
-        const vector<TimePoint>& points, 
-        unsigned int color = CHART_COLOR_PLOTTER
-    ) {
-        flchart()->addPoints(points, color);
+    void addPointSeries(const TimePointSeries& pointSeries) {
+        flchart()->addPointSeries(pointSeries);
     }
 
     Fl_ChartBox* flchart() const { return SAFE(chart); }
 
 protected:
     Fl_ChartBox* chart = nullptr;
+};
+
+class UI_MultiChart: public UI_ScrollBox {
+public:
+    UI_MultiChart(
+        int left, int top, int width, int height,
+        int scrollbarThickness,
+        int spacing//, int chartHeight
+    ): 
+        UI_ScrollBox(left, top, width, height, scrollbarThickness),
+        spacing(spacing), 
+        nextChartTop(spacing),
+        // chartHeight(chartHeight),
+        chartWidth(width - spacing*2 - scrollbarThickness)
+        
+    {}
+
+    virtual ~UI_MultiChart() {}
+
+    void createChart(UI_Manager& ui, int n, int chartHeight) {
+        for (int i = 0; i < n; i++) {
+            UI_ChartBox* chartBox = ui.create<UI_ChartBox>(
+                spacing, nextChartTop, chartWidth, chartHeight
+            );
+            chartBoxes.push_back(chartBox);
+            add(chartBox);
+            nextChartTop += chartHeight + spacing;
+        }
+    }
+
+    void showCandleSeries(const CandleSeries& candleSeries) {
+        chartBoxes.at(0)->addCandleSeries(candleSeries);
+    }
+    
+protected:
+    int spacing, nextChartTop, /*chartHeight,*/ chartWidth;
+    vector<UI_ChartBox*> chartBoxes;
 };
