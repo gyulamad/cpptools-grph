@@ -40,7 +40,7 @@ protected:
 class TimePointSeries {
 public:
     TimePointSeries(
-        vector<TimePoint>& points,
+        vector<TimePoint> points,
         unsigned int color = CHART_COLOR_PLOTTER
     ):
         points(points),
@@ -54,12 +54,12 @@ public:
     unsigned int getColor() const { return color; }
 
 protected:
-    vector<TimePoint>& points;
+    vector<TimePoint> points;
     unsigned int color = CHART_COLOR_PLOTTER;
 };
 
 // Fl_ChartBox will contain a Chart object and handle its drawing
-class Fl_ChartBox : public Fl_CanvasBox {
+class Fl_ChartBox: public Fl_CanvasBox {
 public:
     Fl_ChartBox(
         int X, int Y, int W, int H,
@@ -78,6 +78,8 @@ public:
         )
     {}
 
+    virtual ~Fl_ChartBox() {}
+
     void clearAll() {
         clearCandlesSeries();
         clearPointsSeries();
@@ -95,7 +97,7 @@ public:
         pointsSeries.clear();
     }
 
-    void addPointSeries(const TimePointSeries pointSeries) {
+    void addPointSeries(const TimePointSeries& pointSeries) {
         pointsSeries.push_back(pointSeries);
     }
 

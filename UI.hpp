@@ -62,6 +62,7 @@ feel free to contribute with an issue or pull request to this repository!
 
 #include "Fl_ChartBox.hpp"
 #include "../misc/array_splice.hpp"
+#include "../misc/safe.hpp"
 
 using namespace std;
 
@@ -92,7 +93,7 @@ protected:
 
     template<typename T, typename... Args>
     T* createFl(Args... args) {
-        T* fl_widget = new T(args...);       
+        T* fl_widget = new T(args...);
         return fl_widget;
     }
     
@@ -124,12 +125,16 @@ public:
     virtual ~UI_Manager() {
         for (auto elem: elems) 
             elem.second(elem.first);
+        elems.clear();
     }
 
     template<typename T, typename... Args>
     T* create(Args... args) {
         T* elem = new T(args...);
-        elems.push_back({ elem, [](void* elem) { delete (T*)elem; } });
+        elems.push_back({ elem, [](void* elem) {
+            if (elem) delete (T*)elem; 
+            elem = nullptr;
+        } });
         return elem;
     }
 
@@ -335,10 +340,19 @@ public:
         }
     }
 
+    // Creates the trading view charts
+    void createCharts(UI_Manager& ui, int chartHeight, size_t indicatorChartsCount, int indicatorChartHeight) {
+        // removeCharts(ui); // add this if you reuse
+        createChart(ui, 1, chartHeight); // price chart
+        createChart(ui, indicatorChartsCount, indicatorChartHeight); // bottom indicators
+        createChart(ui, 2, chartHeight); // balance and asset
+    }
+
     void removeCharts(UI_Manager& ui) {
         for (UI_ChartBox* chartBox: chartBoxes)
             ui.remove(chartBox);
         chartBoxes.clear();
+        nextChartTop = spacing;
     }
 
     void showCandleSeries(const CandleSeries& candleSeries) {
