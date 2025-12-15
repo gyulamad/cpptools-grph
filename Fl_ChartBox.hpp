@@ -2,61 +2,13 @@
 
 #include "../misc/Fl_CanvasBox.hpp"
 #include "../trading/Candle.hpp"
+#include "../misc/array_splice.hpp"
 
 #include "Chart.hpp"
+#include "../trading/CandleSeries.hpp"
+#include "TimePointSeries.hpp"
 
-class CandleSeries {
-public:
-    CandleSeries(
-        const vector<Candle>& candles,
-        const string& interval,
-        unsigned int bullishColor = CHART_COLOR_BULLISH,
-        unsigned int bearishColor = CHART_COLOR_BEARISH,
-        double shoulderSpacing = 0.1
-    ):
-        candles(candles),
-        interval(interval),
-        bullishColor(bullishColor),
-        bearishColor(bearishColor),
-        shoulderSpacing(shoulderSpacing)
-    {}
 
-    virtual ~CandleSeries() {}
-
-    const vector<Candle>& getCandlesCRef() const { return candles; }
-    const string& getIntervalCRef() const { return interval; }
-    unsigned int getBullishColor() const { return bullishColor; }
-    unsigned int getBearishColor() const { return bearishColor; }
-    double getShoulderSpacing() const { return shoulderSpacing; }
-
-protected:
-    const vector<Candle>& candles;
-    const string& interval;
-    unsigned int bullishColor;
-    unsigned int bearishColor;
-    double shoulderSpacing;
-};
-
-class TimePointSeries {
-public:
-    TimePointSeries(
-        vector<TimePoint> points,
-        unsigned int color = CHART_COLOR_PLOTTER
-    ):
-        points(points),
-        color(color)
-    {}
-
-    virtual ~TimePointSeries() {}
-
-    vector<TimePoint>& getPointsRef() { return points; }
-    const vector<TimePoint>& getPointsCRef() const { return points; }
-    unsigned int getColor() const { return color; }
-
-protected:
-    vector<TimePoint> points;
-    unsigned int color = CHART_COLOR_PLOTTER;
-};
 
 // Fl_ChartBox will contain a Chart object and handle its drawing
 class Fl_ChartBox: public Fl_CanvasBox {
@@ -80,13 +32,15 @@ public:
 
     virtual ~Fl_ChartBox() {}
 
-    void clearAll() {
-        clearCandlesSeries();
+    void clearAllSeries(int keepFirstN) {
+        clearCandlesSeries(keepFirstN);
         clearPointsSeries();
     }
 
-    void clearCandlesSeries() {
-        candlesSeries.clear();
+    void clearCandlesSeries(int keepFirstN) {
+        if (keepFirstN) {
+            candlesSeries = array_splice(candlesSeries, keepFirstN);
+        } else candlesSeries.clear();
     }
 
     void addCandleSeries(const CandleSeries& candleSeries) {
@@ -115,7 +69,7 @@ public:
         for (const CandleSeries& candleSeries: candlesSeries)
             chart.showCandles(
                 candleSeries.getCandlesCRef(), 
-                candleSeries.getIntervalCRef(), 
+                candleSeries.getInterval(), 
                 candleSeries.getBullishColor(),
                 candleSeries.getBearishColor(),
                 candleSeries.getShoulderSpacing()

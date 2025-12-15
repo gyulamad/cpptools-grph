@@ -76,16 +76,15 @@ public:
 
     void showCandles(
         const vector<Candle>& candles,
-        const string& interval,
+        time_sec interval,
         unsigned int bullishColor = CHART_COLOR_BULLISH, 
         unsigned int bearishColor = CHART_COLOR_BEARISH,
         double shoulderSpacing = 0.1
     ) {
         //  Calculate the candle body with in pixels (double) from interval
-        time_sec intervalSeconds = intervalToSecond(interval); // Convert interval string to seconds
         time_sec totalSeconds = valueLast - valueFirst; // Calculate the total time span of the chart        
         int canvasWidth = innerWidth(); // Use inner width instead of full canvas width
-        double candleBodyWidth = (double)canvasWidth * intervalSeconds / totalSeconds; // Calculate the width of one interval in pixels
+        double candleBodyWidth = (double)canvasWidth * interval / totalSeconds; // Calculate the width of one interval in pixels
         
         // Select the right level of details (LOD)
         if (candleBodyWidth > 5) { // Show each candles...

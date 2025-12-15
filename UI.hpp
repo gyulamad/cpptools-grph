@@ -298,12 +298,16 @@ public:
         return chart;
     }
 
-    void addCandleSeries(const CandleSeries& candleSeries) {
+    void addCandleSeries(const CandleSeries candleSeries) {
         flchart()->addCandleSeries(candleSeries);
     }
 
-    void addPointSeries(const TimePointSeries& pointSeries) {
+    void addPointSeries(const TimePointSeries pointSeries) {
         flchart()->addPointSeries(pointSeries);
+    }
+
+    void clearAllSeries(int keepFirstN) {
+        flchart()->clearAllSeries(keepFirstN);
     }
 
     Fl_ChartBox* flchart() const { return SAFE(chart); }
@@ -340,14 +344,6 @@ public:
         }
     }
 
-    // Creates the trading view charts
-    void createCharts(UI_Manager& ui, int chartHeight, size_t indicatorChartsCount, int indicatorChartHeight) {
-        // removeCharts(ui); // add this if you reuse
-        createChart(ui, 1, chartHeight); // price chart
-        createChart(ui, indicatorChartsCount, indicatorChartHeight); // bottom indicators
-        createChart(ui, 2, chartHeight); // balance and asset
-    }
-
     void removeCharts(UI_Manager& ui) {
         for (UI_ChartBox* chartBox: chartBoxes)
             ui.remove(chartBox);
@@ -355,8 +351,20 @@ public:
         nextChartTop = spacing;
     }
 
-    void showCandleSeries(const CandleSeries& candleSeries) {
-        chartBoxes.at(0)->addCandleSeries(candleSeries);
+    void addCandleSeries(
+        const size_t chartno,
+        const CandleSeries& candleSeries
+    ) {
+        chartBoxes.at(chartno)->addCandleSeries(candleSeries);
+    }
+
+    void clearChartsSeries(int keepFirstN = 0) {
+        int firstN = keepFirstN;
+        for (UI_ChartBox* chartBox: chartBoxes)
+            if (firstN) {
+                firstN--;
+                continue;
+            } else chartBox->clearAllSeries(keepFirstN);
     }
     
 protected:
