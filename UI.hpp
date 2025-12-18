@@ -309,8 +309,16 @@ public:
         flchart()->addPointSeries(pointSeries);
     }
 
-    void clearAllSeries(int keepFirstN) {
-        flchart()->clearAllSeries(keepFirstN);
+    void clearAllSeries() {
+        flchart()->clearAllSeries();
+    }
+
+    void clearCandleSeries() {
+        flchart()->clearCandlesSeries();
+    }
+
+    void clearPointSeries() {
+        flchart()->clearPointsSeries();
     }
 
     Fl_ChartBox* flchart() const { return SAFE(chart); }
@@ -365,13 +373,9 @@ public:
         chartBoxes.at(chartno)->addCandleSeries(candleSeries);
     }
 
-    void clearChartsSeries(int keepFirstN = 0) {
-        int firstN = keepFirstN;
+    void clearChartsSeries() {
         for (UI_ChartBox* chartBox: chartBoxes)
-            if (firstN) {
-                firstN--;
-                continue;
-            } else chartBox->clearAllSeries(keepFirstN);
+            chartBox->clearAllSeries();
     }
     
 protected:

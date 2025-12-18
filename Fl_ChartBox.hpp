@@ -32,15 +32,13 @@ public:
 
     virtual ~Fl_ChartBox() {}
 
-    void clearAllSeries(int keepFirstN) {
-        clearCandlesSeries(keepFirstN);
+    void clearAllSeries() {
+        clearCandlesSeries();
         clearPointsSeries();
     }
 
-    void clearCandlesSeries(int keepFirstN) {
-        if (keepFirstN) {
-            candlesSeries = array_splice(candlesSeries, keepFirstN);
-        } else candlesSeries.clear();
+    void clearCandlesSeries() {
+        candlesSeries.clear();
     }
 
     void addCandleSeries(const CandleSeries& candleSeries) {
