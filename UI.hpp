@@ -1,11 +1,14 @@
 #pragma once
 
+// DEPENDENCY: fltk
+
+
 /**
-The problem: (FLTK is suxs!!)
+The problem: ***FLTK is suxs!!***
 
 This UI lib is supposed to be a usability layer that hides the FLTK 
-while fixes the bugz and crep nonsenses that's still after 30+ years development
-and keep continously coming up...
+while fixes the bugz and crep nonsenses that's still
+after !!! 30+ years of development and keep continously coming up...
 
 The goal:
 
@@ -340,8 +343,12 @@ public:
             );
             chartBoxes.push_back(chartBox);
             add(chartBox);
-            nextChartTop += chartHeight + spacing;
+            nextChartTop += chartHeight; // + (addSpacing ? spacing : 0);
         }
+    }
+
+    void addChartSpacing() {
+        nextChartTop += spacing;
     }
 
     void removeCharts(UI_Manager& ui) {
