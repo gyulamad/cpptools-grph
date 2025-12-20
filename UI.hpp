@@ -54,17 +54,15 @@ If you need or happened to have covered a "standard" FLTK bug or something,
 feel free to contribute with an issue or pull request to this repository!
 */
 
-
-#include <FL/Fl.H>
-#include <FL/Fl_Window.H>
-#include <FL/Fl_Scroll.H>
-
-#include <string>
-#include <vector>
-#include <functional>
-
-#include "Fl_ChartBox.hpp"
+#include <FL/Fl_Widget.H>
+#include <FL/Fl_Group.H>
 #include "../misc/array_splice.hpp"
+#include <FL/Fl_Scroll.H>
+#include <FL/Fl_Window.H>
+#include <FL/Fl_Box.H>
+#include <FL/Fl.H>
+#include "TimePointSeries.hpp"
+#include "Fl_ChartBox.hpp"
 #include "../misc/safe.hpp"
 
 using namespace std;

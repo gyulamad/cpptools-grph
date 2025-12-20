@@ -1,14 +1,8 @@
 #pragma once
 
 #include "../misc/Fl_CanvasBox.hpp"
-#include "../trading/Candle.hpp"
-#include "../misc/array_splice.hpp"
-
-#include "Chart.hpp"
 #include "../trading/CandleSeries.hpp"
 #include "TimePointSeries.hpp"
-
-
 
 // Fl_ChartBox will contain a Chart object and handle its drawing
 class Fl_ChartBox: public Fl_CanvasBox {

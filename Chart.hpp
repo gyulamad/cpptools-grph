@@ -1,16 +1,10 @@
 #pragma once
 
-#include "../misc/Canvas.hpp"
 #include "../misc/EGA_COLORS.hpp"
-
-#include "../trading/Candle.hpp"
-#include "../trading/intervalToSecond.hpp"
-
+#include "../misc/Canvas.hpp"
 #include "TimePoint.hpp"
-
-#include <FL/Fl.H>          // Main FLTK header
-
 #include <cmath>
+#include "../trading/Candle.hpp"
 
 using namespace std;
 

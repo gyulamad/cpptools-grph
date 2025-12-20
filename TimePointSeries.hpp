@@ -1,6 +1,5 @@
 #pragma once
 
-#include <vector>
 #include "TimePoint.hpp"
 #include "Chart.hpp"
 
