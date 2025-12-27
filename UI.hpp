@@ -89,6 +89,7 @@ public:
     }
 
     virtual Fl_Widget* build() = 0;
+    virtual void refresh() = 0;
 
 protected:
 
@@ -236,8 +237,19 @@ public:
         return run(idle, data, once);
     }
 
+    void refresh() override {
+        // Process FLTK events to allow window to redraw
+        // Fl::flush();  // or 
+        // Fl::check(); // - both work
+        // Optionally trigger redraw
+        Fl::check();
+        flwindow()->redraw();
+    }
+
+    // ============ ONLY FOR DEBUG, DO NOT USE!! ===============
     Fl_Window* flwindow() const { return SAFE(window); }
     Fl_Scroll* flscroll() const { return SAFE(scroll); }
+    // =========================================================
 
 protected:
     string title;
@@ -317,6 +329,11 @@ public:
 
     void clearPointSeries() {
         flchart()->clearPointsSeries();
+    }
+
+    void refresh() override {
+        Fl::check();
+        flchart()->redraw();
     }
 
     Fl_ChartBox* flchart() const { return SAFE(chart); }
