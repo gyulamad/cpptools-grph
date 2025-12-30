@@ -118,8 +118,8 @@ public:
 
     void showBars(
         const vector<TimePoint>& points,
-        unsigned int color = CHART_COLOR_PLOTTER,
-        double spacing = 0.1 // TODO
+        unsigned int color = CHART_COLOR_PLOTTER //,
+        // double spacing = 0.1 // TODO give width for the bars somehow!
     ) {
         // If we don't have a valid time range or drawable width, bail out
         if (points.size() < 2) return;
