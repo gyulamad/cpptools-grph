@@ -37,7 +37,7 @@ public:
             candlesSeries.clear();
     }
 
-    void addCandleSeries(const CandleSeries& candleSeries, int pane = 0) {
+    void addCandleSeries(const CandleSeries& candleSeries, size_t pane = 0) {
         while (candlesSerieses.size() < pane + 1) candlesSerieses.push_back({});
         candlesSerieses[pane].push_back(candleSeries);
     }
@@ -47,7 +47,7 @@ public:
             barsSeries.clear();
     }
 
-    void addBarSeries(const TimePointSeries& barSeries, int pane = 0) {
+    void addBarSeries(const TimePointSeries& barSeries, size_t pane = 0) {
         while (barsSerieses.size() < pane + 1) barsSerieses.push_back({});
         barsSerieses[pane].push_back(barSeries);
     }
@@ -57,7 +57,7 @@ public:
             pointsSeries.clear();
     }
 
-    void addPointSeries(const TimePointSeries& pointSeries, int pane = 0) {
+    void addPointSeries(const TimePointSeries& pointSeries, size_t pane = 0) {
         while (pointsSerieses.size() < pane + 1) pointsSerieses.push_back({});
         pointsSerieses[pane].push_back(pointSeries);
     }
