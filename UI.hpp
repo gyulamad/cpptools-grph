@@ -311,24 +311,32 @@ public:
         return chart;
     }
 
-    void addCandleSeries(const CandleSeries candleSeries) {
-        flchart()->addCandleSeries(candleSeries);
+    void addCandleSeries(const CandleSeries candleSeries, int pane = 0) {
+        flchart()->addCandleSeries(candleSeries, pane);
     }
 
-    void addPointSeries(const TimePointSeries pointSeries) {
-        flchart()->addPointSeries(pointSeries);
+    void addBarSeries(const TimePointSeries barSeries, int pane = 0) {
+        flchart()->addBarSeries(barSeries, pane);
     }
 
-    void clearAllSeries() {
-        flchart()->clearAllSeries();
+    void addPointSeries(const TimePointSeries pointSeries, int pane = 0) {
+        flchart()->addPointSeries(pointSeries, pane);
     }
 
-    void clearCandleSeries() {
-        flchart()->clearCandlesSeries();
+    void clearAllSerieses() {
+        flchart()->clearAllSerieses();
     }
 
-    void clearPointSeries() {
-        flchart()->clearPointsSeries();
+    void clearCandlesSerieses() {
+        flchart()->clearCandlesSerieses();
+    }
+
+    void clearBarsSerieses() {
+        flchart()->clearBarsSerieses();
+    }
+
+    void clearPointsSerieses() {
+        flchart()->clearPointsSerieses();
     }
 
     void refresh() override {
@@ -390,7 +398,7 @@ public:
 
     void clearChartsSeries() {
         for (UI_ChartBox* chartBox: chartBoxes)
-            chartBox->clearAllSeries();
+            chartBox->clearAllSerieses();
     }
     
 protected:

@@ -116,6 +116,46 @@ public:
 
     }
 
+    void showBars(
+        const vector<TimePoint>& points,
+        unsigned int color = CHART_COLOR_PLOTTER,
+        double spacing = 0.1 // TODO
+    ) {
+        // If we don't have a valid time range or drawable width, bail out
+        if (points.size() < 2) return;
+        if (valueLast < valueFirst) return;
+        int widthPx = innerWidth();
+        if (widthPx <= 0) return;
+
+        // How many seconds correspond to one pixel (computed once)
+        double secondsPerPixel = static_cast<double>(valueLast - valueFirst) / static_cast<double>(widthPx);
+
+        time_sec t1, t2;
+        float v2;
+        bool first = true;
+
+        const int lod = 1; // number of pixels to skip
+        double lodSeconds = lod * secondsPerPixel; // computed once, in seconds
+
+        for (const TimePoint& point: points) {
+            if (first) {
+                t1 = point.getTime();
+                first = false;
+                continue;
+            }
+            t2 = point.getTime();
+            
+            // compare time difference in seconds
+            time_sec dt = t2 > t1 ? t2 - t1 : t1 - t2;
+            if (dt < lodSeconds) continue;
+
+            v2 = point.getValue();
+            if (!showBar(t2, v2, color)) continue;
+            t1 = t2;
+        }
+    }
+
+
     void showPoints(
         const vector<TimePoint>& points,
         unsigned int color = CHART_COLOR_PLOTTER
@@ -234,6 +274,20 @@ protected:
             candleTime + candleBodyWidth, candle.getHigh(), 
             candle.getOpen() < candle.getClose() ? bullishColor : bearishColor
         )) return false;
+        return true;
+    }
+
+    [[nodiscard]]
+    bool showBar(
+        time_sec x, float y,
+        unsigned int color
+    ) {
+        if (isnan(y)) return false;
+        canvas.line(
+            timeToX(x), valueToY(y), 
+            timeToX(x), valueToY(0), 
+            color
+        );
         return true;
     }
 
