@@ -264,7 +264,7 @@ private:
     static IdleData idle_data;
 
 };
-UI_Window::IdleData UI_Window::idle_data;
+inline UI_Window::IdleData UI_Window::idle_data;
 
 class UI_ScrollBox: public UI_Element {
 public:
