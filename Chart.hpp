@@ -31,7 +31,9 @@ public:
         spacingBottom(spacingBottom),
         spacingLeft(spacingLeft),
         spacingRight(spacingRight)
-    {}
+    {
+        resetBounds();
+    }
 
     virtual ~Chart() {}
 
@@ -292,7 +294,7 @@ protected:
     }
 
     [[nodiscard]]
-    bool showLine(
+    virtual bool showLine(
         time_sec x1, float y1,
         time_sec x2, float y2,
         unsigned int color

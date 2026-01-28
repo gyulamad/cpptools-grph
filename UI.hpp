@@ -64,6 +64,7 @@ feel free to contribute with an issue or pull request to this repository!
 #include "TimePointSeries.hpp"
 #include "Fl_ChartBox.hpp"
 #include "../misc/safe.hpp"
+#include "../misc/Logger.hpp"
 
 using namespace std;
 
@@ -399,6 +400,16 @@ public:
     void clearChartsSeries() {
         for (UI_ChartBox* chartBox: chartBoxes)
             chartBox->clearAllSerieses();
+    }
+
+    void joinScroll() {
+        int chartno = 0;
+        for (UI_ChartBox* chartBox: chartBoxes) {
+            chartBox->flchart()->scroll = [chartno, chartBox](int /*left*/, int /*top*/, int /*delta_x*/, int /*delta_y*/, int /*button*/) {
+                DBG("TODO zoom all! " + to_string(chartno));
+            };
+            chartno++;
+        }
     }
     
 protected:
