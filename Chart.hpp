@@ -24,24 +24,34 @@ public:
         int spacingTop = CHART_SPACING_TOP,
         int spacingBottom = CHART_SPACING_BOTTOM,
         int spacingLeft = CHART_SPACING_LEFT,
-        int spacingRight = CHART_SPACING_RIGHT
+        int spacingRight = CHART_SPACING_RIGHT,
+        double zoomInFactor = 1.25,
+        double zoomOutFactor = 0.8
     ): 
         canvas(canvas),
         spacingTop(spacingTop),
         spacingBottom(spacingBottom),
         spacingLeft(spacingLeft),
-        spacingRight(spacingRight)
+        spacingRight(spacingRight),
+        zoomInFactor(zoomInFactor),
+        zoomOutFactor(zoomOutFactor)
     {
         resetBounds();
     }
 
     virtual ~Chart() {}
+    
+    // Public getters for canvas dimensions
+    int getCanvasWidth() const { return canvas.width(); }
+    int getCanvasHeight() const { return canvas.height(); }
 
     void resetBounds() {
         valueFirst = numeric_limits<time_sec>::max();
         valueLast = numeric_limits<time_sec>::min();
         valueUpper = -numeric_limits<float>::infinity();
         valueLower = numeric_limits<float>::infinity();
+        viewFirst = 0;
+        viewLast = 0;
     }
 
     void fitToCandles(const vector<Candle>& candles) {
@@ -68,6 +78,167 @@ public:
             valueLower = valueLower < pointValue ? valueLower : pointValue;
             valueUpper = valueUpper > pointValue ? valueUpper : pointValue;
         }
+    }
+    
+    // Reset view to full data range (only if not already initialized)
+    void resetView() {
+        if (viewInitialized) return;
+        viewFirst = valueFirst;
+        viewLast = valueLast;
+        viewInitialized = true;
+    }
+    
+    // Getters for zoom factors
+    double getZoomInFactor() const { return zoomInFactor; }
+    double getZoomOutFactor() const { return zoomOutFactor; }
+    
+    // Getters for view bounds
+    time_sec getViewFirst() const { return viewFirst; }
+    time_sec getViewLast() const { return viewLast; }
+    bool isViewInitialized() const { return viewInitialized; }
+
+    // Check if any data is outside visible view
+    bool hasDataOutsideView() const {
+        return valueFirst < viewFirst || valueLast > viewLast;
+    }
+
+    // Get visible subset of candles
+    vector<Candle> getVisibleCandles(const vector<Candle>& candles) const {
+        // If view not set (0,0), return empty (caller should call resetView first)
+        if (viewFirst == 0 && viewLast == 0) return vector<Candle>();
+        
+        vector<Candle> visible;
+        for (const Candle& candle : candles) {
+            time_sec t = candle.getTime();
+            if (t >= viewFirst && t <= viewLast)
+                visible.push_back(candle);
+        }
+        return visible;
+    }
+
+    // Get visible subset of points
+    vector<TimePoint> getVisiblePoints(const vector<TimePoint>& points) const {
+        // If view not set (0,0), return empty (caller should call resetView first)
+        if (viewFirst == 0 && viewLast == 0) return vector<TimePoint>();
+        
+        vector<TimePoint> visible;
+        for (const TimePoint& point : points) {
+            time_sec t = point.getTime();
+            if (t >= viewFirst && t <= viewLast)
+                visible.push_back(point);
+        }
+        return visible;
+    }
+
+    // Fit Y-axis to visible candles only (updates value bounds to visible subset)
+    void fitToVisibleCandles(const vector<Candle>& candles) {
+        // First get visible subset, then update bounds
+        vector<Candle> visible = getVisibleCandles(candles);
+        
+        valueFirst = numeric_limits<time_sec>::max();
+        valueLast = numeric_limits<time_sec>::min();
+        valueLower = numeric_limits<float>::infinity();
+        valueUpper = -numeric_limits<float>::infinity();
+        
+        for (const Candle& candle : visible) {
+            const time_sec candleTime = candle.getTime();
+            const float candleLow = candle.getLow();
+            if (isnan(candleLow)) continue;
+            const float candleHigh = candle.getHigh();
+            if (isnan(candleHigh)) continue;
+            
+            // Update time bounds
+            if (candleTime < valueFirst) valueFirst = candleTime;
+            if (candleTime > valueLast) valueLast = candleTime;
+            
+            // Update value bounds
+            if (candleLow < valueLower) valueLower = candleLow;
+            if (candleHigh > valueUpper) valueUpper = candleHigh;
+        }
+    }
+
+    // Fit Y-axis to visible points only (updates value bounds to visible subset)
+    void fitToVisiblePoints(const vector<TimePoint>& points) {
+        // First get visible subset, then update bounds
+        vector<TimePoint> visible = getVisiblePoints(points);
+        
+        valueFirst = numeric_limits<time_sec>::max();
+        valueLast = numeric_limits<time_sec>::min();
+        valueLower = numeric_limits<float>::infinity();
+        valueUpper = -numeric_limits<float>::infinity();
+        
+        for (const TimePoint& point : visible) {
+            const time_sec pointTime = point.getTime();
+            const float pointValue = point.getValue();
+            if (isnan(pointValue)) continue;
+            
+            // Update time bounds
+            if (pointTime < valueFirst) valueFirst = pointTime;
+            if (pointTime > valueLast) valueLast = pointTime;
+            
+            // Update value bounds
+            if (pointValue < valueLower) valueLower = pointValue;
+            if (pointValue > valueUpper) valueUpper = pointValue;
+        }
+    }
+
+    // Convert pixel to time
+    time_sec pixelToTime(int pixelX) const {
+        if (valueLast <= valueFirst) return valueFirst;
+        
+        double ratio = (double)(pixelX - spacingLeft) / innerWidth();
+        return valueFirst + (time_sec)(ratio * (valueLast - valueFirst));
+    }
+
+    // Zoom at pixel position (factor > 1 = zoom in, factor < 1 = zoom out)
+    void zoomAt(double factor, int pixelX) {
+        time_sec visibleDuration = viewLast - viewFirst;
+        time_sec newDuration = (time_sec)(visibleDuration / factor);
+        
+        // Clamp to data boundaries - max zoom out when all data is visible
+        time_sec dataDuration = valueLast - valueFirst;
+        if (newDuration > dataDuration) newDuration = dataDuration;
+        
+        // Calculate relative X position (0.0 to 1.0)
+        double relativeX = (double)(pixelX - spacingLeft) / innerWidth();
+        
+        // Edge quarter logic: stick to edges
+        if (relativeX < 0.25) {
+            // Stick to left edge
+            viewFirst = valueFirst;
+            viewLast = viewFirst + newDuration;
+        } else if (relativeX > 0.75) {
+            // Stick to right edge
+            viewLast = valueLast;
+            viewFirst = viewLast - newDuration;
+        } else {
+            // Center on pixel position
+            time_sec centerTime = valueFirst + (time_sec)(relativeX * dataDuration);
+            viewFirst = centerTime - (time_sec)(newDuration * relativeX);
+            viewLast = viewFirst + newDuration;
+            
+            // Clamp to data boundaries (only right side needs checking in middle case)
+            if (viewLast > valueLast) {
+                viewLast = valueLast;
+                viewFirst = viewLast - newDuration;
+            }
+        }
+    }
+
+    // Scroll by delta in pixels (mobile-style: drag left moves chart right)
+    void scrollBy(double deltaPixels) {
+        if (valueLast <= valueFirst) return;
+        
+        // Calculate seconds per pixel based on FULL data range
+        double secondsPerPixel = (double)(valueLast - valueFirst) / innerWidth();
+        time_sec deltaTime = (time_sec)(deltaPixels * secondsPerPixel);
+        
+        viewFirst += deltaTime;
+        viewLast += deltaTime;
+        
+        // Clamp to data boundaries
+        if (viewFirst < valueFirst) viewFirst = valueFirst;
+        if (viewLast > valueLast) viewLast = valueLast;
     }
 
     void showCandles(
@@ -309,12 +480,19 @@ protected:
     }
 
     // Project time_sec value to x coordinate on canvas (with padding)
+    // Uses view window for visible data
     int timeToX(time_sec time) const {
-        if (valueLast == valueFirst) return innerWidth() / 2; // Avoid division by zero
+        if (valueLast <= valueFirst) return innerWidth() / 2; // Avoid division by zero
         
-        // Linear interpolation: map [valueFirst, valueLast] to [spacingLeft, canvas.width()-spacingRight]
-        double ratio = static_cast<double>(time - valueFirst) / (valueLast - valueFirst);
-        int x = static_cast<int>(ratio * innerWidth());
+        // Use view window instead of full data range
+        time_sec viewStart = viewFirst ? viewFirst : valueFirst;
+        time_sec viewEnd = viewLast ? viewLast : valueLast;
+        
+        if (viewEnd <= viewStart) return innerWidth() / 2;
+        
+        // Linear interpolation: map [viewFirst, viewLast] to [spacingLeft, canvas.width()-spacingRight]
+        double ratio = (double)(time - viewStart) / (viewEnd - viewStart);
+        int x = (int)(ratio * innerWidth());
         return innerX(x); // Add left spacing
     }
     
@@ -338,4 +516,11 @@ protected:
     time_sec valueLast;
     float valueUpper;
     float valueLower;
+    time_sec viewFirst;
+    time_sec viewLast;
+    bool viewInitialized = false;
+
+protected:
+    double zoomInFactor;
+    double zoomOutFactor;
 };

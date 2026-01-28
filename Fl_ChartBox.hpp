@@ -3,6 +3,7 @@
 #include "../misc/Fl_CanvasBox.hpp"
 #include "../trading/CandleSeries.hpp"
 #include "TimePointSeries.hpp"
+#include "ChartGroup.hpp"
 
 // Fl_ChartBox will contain a Chart object and handle its drawing
 class Fl_ChartBox: public Fl_CanvasBox {
@@ -21,10 +22,51 @@ public:
             spacingBottom,
             spacingLeft,
             spacingRight
-        )
-    {}
+        ),
+        group(nullptr),
+        lastDragX(0)
+    {
+        // Set up mouse wheel callback for zoom
+        scroll = [this](int left, int top, int dx, int dy, int button) {
+            // LCOV_EXCL_START
+            // Coverage excluded - requires actual FLTK mouse wheel event
+            (void)top;
+            (void)dx;
+            (void)button;
+            if (dy != 0) {
+                onMouseWheel(left, dy);
+            }
+            // LCOV_EXCL_STOP
+        };
+        
+        // Set up drag callback for scroll (real-time as mouse moves)
+        drag = [this](int left, int top, int button) {
+            // LCOV_EXCL_START
+            // Coverage excluded - requires actual FLTK drag event
+            (void)top;
+            (void)button;
+            if (lastDragX != 0) {
+                onDrag(left, left - lastDragX);
+            }
+            lastDragX = left;
+            // LCOV_EXCL_STOP
+        };
+        
+        // Reset drag tracking on push
+        push = [this](int left, int top, int button) {
+            // LCOV_EXCL_START
+            // Coverage excluded - requires actual FLTK push event
+            (void)top;
+            (void)button;
+            lastDragX = left;
+            // LCOV_EXCL_STOP
+        };
+    }
 
     virtual ~Fl_ChartBox() {}
+
+    void setChartGroup(ChartGroup* group) { this->group = group; }
+    Chart& getChart() { return chart; }
 
     void clearAllSerieses() {
         clearCandlesSerieses();
@@ -33,8 +75,7 @@ public:
     }
 
     void clearCandlesSerieses() {
-        for (auto& candlesSeries: candlesSerieses)
-            candlesSeries.clear();
+        candlesSerieses.clear();
     }
 
     void addCandleSeries(const CandleSeries& candleSeries, size_t pane = 0) {
@@ -43,8 +84,7 @@ public:
     }
 
     void clearBarsSerieses() {
-        for (auto& barsSeries: barsSerieses)
-            barsSeries.clear();
+        barsSerieses.clear();
     }
 
     void addBarSeries(const TimePointSeries& barSeries, size_t pane = 0) {
@@ -53,8 +93,7 @@ public:
     }
 
     void clearPointsSerieses() {
-        for (auto& pointsSeries: pointsSerieses)
-            pointsSeries.clear();
+        pointsSerieses.clear();
     }
 
     void addPointSeries(const TimePointSeries& pointSeries, size_t pane = 0) {
@@ -86,32 +125,89 @@ public:
                 chart.fitToPoints(barSeries.getPointsCRef());
             for (const TimePointSeries& pointSeries: pointsSeries)
                 chart.fitToPoints(pointSeries.getPointsCRef());
+            
+            // Initialize view if not set
+            chart.resetView();
+            
+            // Get visible data and fit Y-axis to visible
+            vector<Candle> visibleCandles;
+            for (const CandleSeries& candleSeries: candlesSeries) {
+                vector<Candle> vc = chart.getVisibleCandles(candleSeries.getCandlesCRef());
+                visibleCandles.insert(visibleCandles.end(), vc.begin(), vc.end());
+            }
+            chart.fitToVisibleCandles(visibleCandles);
+            
+            vector<TimePoint> visibleBars;
+            for (const TimePointSeries& barSeries: barsSeries) {
+                vector<TimePoint> vb = chart.getVisiblePoints(barSeries.getPointsCRef());
+                visibleBars.insert(visibleBars.end(), vb.begin(), vb.end());
+            }
+            chart.fitToVisiblePoints(visibleBars);
+            
+            vector<TimePoint> visiblePoints;
+            for (const TimePointSeries& pointSeries: pointsSeries) {
+                vector<TimePoint> vp = chart.getVisiblePoints(pointSeries.getPointsCRef());
+                visiblePoints.insert(visiblePoints.end(), vp.begin(), vp.end());
+            }
+            chart.fitToVisiblePoints(visiblePoints);
 
-            // Now draw the chart contents        
-            for (const CandleSeries& candleSeries: candlesSeries)
-                chart.showCandles(
-                    candleSeries.getCandlesCRef(), 
-                    candleSeries.getInterval(), 
-                    candleSeries.getBullishColor(),
-                    candleSeries.getBearishColor(),
-                    candleSeries.getShoulderSpacing()
-                );
-            for (const TimePointSeries& barSeries: barsSeries)
-                chart.showBars(
-                    barSeries.getPointsCRef(), 
-                    barSeries.getColor()
-                );
-            for (const TimePointSeries& pointSeries: pointsSeries)
-                chart.showPoints(
-                    pointSeries.getPointsCRef(), 
-                    pointSeries.getColor()
-                );
+            // Draw visible data
+            for (const CandleSeries& candleSeries: candlesSeries) {
+                vector<Candle> visible = chart.getVisibleCandles(candleSeries.getCandlesCRef());
+                if (!visible.empty())
+                    chart.showCandles(
+                        visible, 
+                        candleSeries.getInterval(), 
+                        candleSeries.getBullishColor(),
+                        candleSeries.getBearishColor(),
+                        candleSeries.getShoulderSpacing()
+                    );
+            }
+            for (const TimePointSeries& barSeries: barsSeries) {
+                vector<TimePoint> visible = chart.getVisiblePoints(barSeries.getPointsCRef());
+                if (!visible.empty())
+                    chart.showBars(
+                        visible, 
+                        barSeries.getColor()
+                    );
+            }
+            for (const TimePointSeries& pointSeries: pointsSeries) {
+                vector<TimePoint> visible = chart.getVisiblePoints(pointSeries.getPointsCRef());
+                if (!visible.empty())
+                    chart.showPoints(
+                        visible, 
+                        pointSeries.getColor()
+                    );
+            }
         }
     }
     // LCOV_EXCL_STOP
 
  protected:
+    void onMouseWheel(int pixelX, int deltaY) {
+        double factor = deltaY > 0 ? chart.getZoomInFactor() : chart.getZoomOutFactor();
+        
+        if (group) {
+            group->zoomAt(factor, pixelX);
+        } else {
+            chart.zoomAt(factor, pixelX);
+        }
+        redraw();
+    }
+    
+    void onDrag(int pixelX, int deltaX) {
+        if (group) {
+            group->scrollBy(deltaX);
+        } else {
+            chart.scrollBy(deltaX);
+        }
+        redraw();
+        lastDragX = pixelX;
+    }
+    
     Chart chart;
+    ChartGroup* group;
+    int lastDragX;
 
     vector<vector<CandleSeries>> candlesSerieses;
     vector<vector<TimePointSeries>> barsSerieses;

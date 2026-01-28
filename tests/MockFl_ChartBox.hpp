@@ -11,4 +11,10 @@ public:
     using Fl_ChartBox::candlesSerieses;
     using Fl_ChartBox::barsSerieses;
     using Fl_ChartBox::pointsSerieses;
+    using Fl_ChartBox::group;
+    using Fl_ChartBox::lastDragX;
+    
+    // Expose protected methods for testing
+    using Fl_ChartBox::onMouseWheel;
+    using Fl_ChartBox::onDrag;
 };

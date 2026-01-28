@@ -403,16 +403,20 @@ public:
     }
 
     void joinScroll() {
-        int chartno = 0;
-        for (UI_ChartBox* chartBox: chartBoxes) {
-            chartBox->flchart()->scroll = [chartno, chartBox](int /*left*/, int /*top*/, int /*delta_x*/, int /*delta_y*/, int /*button*/) {
-                DBG("TODO zoom all! " + to_string(chartno));
-            };
-            chartno++;
+        // Add all charts to the group
+        for (UI_ChartBox* chartBox : chartBoxes) {
+            group.addChart(chartBox->flchart()->getChart());
+        }
+        
+        // Set up synchronized scroll/zoom
+        for (UI_ChartBox* chartBox : chartBoxes) {
+            Fl_ChartBox* flChart = chartBox->flchart();
+            flChart->setChartGroup(&group);
         }
     }
     
 protected:
     int spacing, nextChartTop, /*chartHeight,*/ chartWidth;
     vector<UI_ChartBox*> chartBoxes;
+    ChartGroup group;
 };

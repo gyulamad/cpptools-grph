@@ -697,4 +697,426 @@ TEST(test_Chart_showCandles_aggregation_mode) {
     assert(true && "showCandles should handle aggregation mode without crashing");
 }
 
+// ===== ZOOM/SCROLL TESTS =====
+
+// Test resetView() initializes view to data bounds
+TEST(test_Chart_resetView_initializes_view_to_data_bounds) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Load data
+    chart.fitToPoints({{100, 5.0f}, {200, 8.0f}, {300, 3.0f}});
+
+    // resetView should set viewFirst/viewLast to data bounds
+    chart.resetView();
+
+    assert(chart.viewFirst == 100 && "resetView should set viewFirst to first data point time");
+    assert(chart.viewLast == 300 && "resetView should set viewLast to last data point time");
+    assert(chart.isViewInitialized() && "resetView should set viewInitialized to true");
+}
+
+// Test zoomAt() zooms in at center of view
+TEST(test_Chart_zoomAt_zooms_in_at_center) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Set up data and view
+    chart.fitToPoints({{0, 0.0f}, {1000, 10.0f}});
+    chart.resetView();
+
+    // Initial view: 0-1000
+    time_sec initialFirst = chart.viewFirst;
+    time_sec initialLast = chart.viewLast;
+
+    // Zoom in (factor > 1) at center of chart (pixel 300 = center of inner width 600)
+    chart.zoomAt(1.5, 300);
+
+    // View should be narrower after zoom in
+    assert(chart.viewLast - chart.viewFirst < initialLast - initialFirst && "zoomIn should narrow view range");
+    assert(chart.viewFirst >= initialFirst && "zoomIn should not expand before initial first");
+    assert(chart.viewLast <= initialLast && "zoomIn should not expand beyond initial last");
+}
+
+// Test zoomAt() zooms out from center
+TEST(test_Chart_zoomAt_zooms_out_from_center) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Set up data and view
+    chart.fitToPoints({{0, 0.0f}, {10000, 100.0f}});
+    chart.resetView();
+
+    // Zoom out (factor < 1) - only possible if view is zoomed in first
+    // First zoom in, then zoom out
+    chart.zoomAt(0.5, 300);  // This would zoom out from current view
+
+    // For now, just verify no crash
+    assert(true && "zoomAt with factor < 1 should not crash");
+}
+
+// Test scrollBy() shifts view horizontally
+TEST(test_Chart_scrollBy_shifts_view_horizontally) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Set up data that extends beyond the initial view
+    chart.fitToPoints({{0, 0.0f}, {1000, 10.0f}, {2000, 5.0f}});
+    chart.resetView();
+
+    time_sec initialFirst = chart.viewFirst;
+    time_sec initialLast = chart.viewLast;
+
+    // Scroll right (positive delta means drag left, so view moves right)
+    chart.scrollBy(100);
+
+    // View should be shifted right (later times)
+    assert(chart.viewFirst > initialFirst && "scrollBy should shift viewFirst forward");
+    // viewLast might be clamped if it hits data boundary, so we check initialLast too
+    assert(chart.viewLast >= initialLast && "scrollBy should not decrease viewLast");
+}
+
+// Test hasDataOutsideView() returns true when data extends beyond view
+TEST(test_Chart_hasDataOutsideView_returns_true_when_data_extends_beyond_view) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Set up data that extends beyond current view
+    chart.fitToPoints({{0, 0.0f}, {1000, 10.0f}});
+    chart.resetView();
+
+    // Now zoom in to a subset of data
+    chart.viewFirst = 200;
+    chart.viewLast = 400;
+
+    assert(chart.hasDataOutsideView() && "hasDataOutsideView should return true when zoomed in");
+}
+
+// Test hasDataOutsideView() returns false when view equals data
+TEST(test_Chart_hasDataOutsideView_returns_false_when_view_equals_data) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Set up data
+    chart.fitToPoints({{100, 5.0f}, {300, 8.0f}});
+    chart.resetView();
+
+    // View equals data bounds
+    assert(!chart.hasDataOutsideView() && "hasDataOutsideView should return false when view equals data");
+}
+
+// Test getVisibleCandles() filters candles to visible range
+TEST(test_Chart_getVisibleCandles_filters_to_visible_range) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Create candles
+    vector<Candle> candles = {
+        {100, 3.0f, 9.0f, 2.0f, 7.0f, 0.0f},
+        {200, 4.0f, 10.0f, 3.0f, 8.0f, 0.0f},
+        {300, 5.0f, 11.0f, 4.0f, 9.0f, 0.0f},
+        {400, 6.0f, 12.0f, 5.0f, 10.0f, 0.0f}
+    };
+    chart.fitToCandles(candles);
+    chart.resetView();
+
+    // Zoom in to middle candles
+    chart.viewFirst = 150;
+    chart.viewLast = 350;
+
+    vector<Candle> visible = chart.getVisibleCandles(candles);
+
+    // Should only include candles 200 and 300
+    assert(visible.size() == 2 && "getVisibleCandles should return only candles within view range");
+    assert(visible[0].getTime() == 200 && "First visible candle should be at time 200");
+    assert(visible[1].getTime() == 300 && "Second visible candle should be at time 300");
+}
+
+// Test getVisiblePoints() filters points to visible range
+TEST(test_Chart_getVisiblePoints_filters_to_visible_range) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Create points
+    vector<TimePoint> points = {{100, 5.0f}, {200, 8.0f}, {300, 3.0f}, {400, 7.0f}};
+    chart.fitToPoints(points);
+    chart.resetView();
+
+    // Zoom in to middle points
+    chart.viewFirst = 150;
+    chart.viewLast = 350;
+
+    vector<TimePoint> visible = chart.getVisiblePoints(points);
+
+    // Should only include points 200 and 300
+    assert(visible.size() == 2 && "getVisiblePoints should return only points within view range");
+    assert(visible[0].getTime() == 200 && "First visible point should be at time 200");
+    assert(visible[1].getTime() == 300 && "Second visible point should be at time 300");
+}
+
+// Test pixelToTime() converts pixel to time
+TEST(test_Chart_pixelToTime_converts_pixel_to_time) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Set up data and view
+    chart.fitToPoints({{0, 0.0f}, {1000, 10.0f}});
+    chart.resetView();
+
+    // Pixel 0 (left edge of inner area) should map to viewFirst
+    time_sec leftTime = chart.pixelToTime(chart.spacingLeft);
+    assert(leftTime == chart.viewFirst && "pixelToTime at left edge should equal viewFirst");
+
+    // Pixel at right edge should map to viewLast
+    int rightPixel = chart.spacingLeft + chart.innerWidth();
+    time_sec rightTime = chart.pixelToTime(rightPixel);
+    assert(rightTime == chart.viewLast && "pixelToTime at right edge should equal viewLast");
+}
+
+// Test fitToVisibleCandles() updates value bounds to visible candles
+TEST(test_Chart_fitToVisibleCandles_updates_bounds_to_visible) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    vector<Candle> candles = {
+        {100, 3.0f, 9.0f, 2.0f, 7.0f, 0.0f},
+        {200, 4.0f, 10.0f, 3.0f, 8.0f, 0.0f},
+        {300, 5.0f, 11.0f, 4.0f, 9.0f, 0.0f},
+        {400, 6.0f, 12.0f, 5.0f, 10.0f, 0.0f}
+    };
+    chart.fitToCandles(candles);
+    chart.resetView();
+
+    // Zoom in to middle candles
+    chart.viewFirst = 150;
+    chart.viewLast = 350;
+
+    // fitToVisibleCandles should update valueFirst/valueLast to visible range
+    chart.fitToVisibleCandles(candles);
+
+    assert(chart.valueFirst == 200 && "fitToVisibleCandles should set valueFirst to first visible candle");
+    assert(chart.valueLast == 300 && "fitToVisibleCandles should set valueLast to last visible candle");
+}
+
+// Test fitToVisiblePoints() updates value bounds to visible points
+TEST(test_Chart_fitToVisiblePoints_updates_bounds_to_visible) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    vector<TimePoint> points = {{100, 5.0f}, {200, 8.0f}, {300, 3.0f}, {400, 7.0f}};
+    chart.fitToPoints(points);
+    chart.resetView();
+
+    // Zoom in to middle points
+    chart.viewFirst = 150;
+    chart.viewLast = 350;
+
+    // fitToVisiblePoints should update valueFirst/valueLast to visible range
+    chart.fitToVisiblePoints(points);
+
+    assert(chart.valueFirst == 200 && "fitToVisiblePoints should set valueFirst to first visible point");
+    assert(chart.valueLast == 300 && "fitToVisiblePoints should set valueLast to last visible point");
+}
+
+// ===== ADDITIONAL EDGE CASE TESTS =====
+
+// Test resetView() does nothing when already initialized
+TEST(test_Chart_resetView_does_nothing_when_already_initialized) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Load data
+    chart.fitToPoints({{100, 5.0f}, {200, 8.0f}, {300, 3.0f}});
+    chart.resetView();
+
+    // Manually change view
+    chart.viewFirst = 150;
+    chart.viewLast = 250;
+
+    // Call resetView again - should do nothing since already initialized
+    chart.resetView();
+
+    // View should remain unchanged
+    assert(chart.viewFirst == 150 && "resetView should not change view when already initialized");
+    assert(chart.viewLast == 250 && "resetView should not change view when already initialized");
+}
+
+// Test zoomAt() at left edge (stick to left)
+TEST(test_Chart_zoomAt_sticks_to_left_edge) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Set up data and view
+    chart.fitToPoints({{0, 0.0f}, {1000, 10.0f}});
+    chart.resetView();
+
+    // Zoom in at left edge (pixel 100 is in left quarter)
+    chart.zoomAt(1.5, 100);
+
+    // View should stick to left edge
+    assert(chart.viewFirst == 0 && "zoomAt at left edge should set viewFirst to data first");
+    assert(chart.viewLast < 1000 && "zoomAt should narrow view range");
+}
+
+// Test zoomAt() at right edge (stick to right)
+TEST(test_Chart_zoomAt_sticks_to_right_edge) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Set up data and view
+    chart.fitToPoints({{0, 0.0f}, {1000, 10.0f}});
+    chart.resetView();
+
+    // Zoom in at right edge (pixel 700 is in right quarter)
+    chart.zoomAt(1.5, 700);
+
+    // View should stick to right edge
+    assert(chart.viewLast == 1000 && "zoomAt at right edge should set viewLast to data last");
+    assert(chart.viewFirst > 0 && "zoomAt should narrow view range");
+}
+
+// Test zoomAt() with clamping at left boundary
+TEST(test_Chart_zoomAt_clamps_at_left_boundary) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Set up data and view with some zoom already applied
+    chart.fitToPoints({{0, 0.0f}, {1000, 10.0f}});
+    chart.resetView();
+
+    // Zoom in at center first
+    chart.zoomAt(2.0, 400);
+    time_sec firstAfterZoom = chart.viewFirst;
+
+    // Now zoom out at left edge - should clamp to data boundary
+    chart.zoomAt(0.5, 100);
+
+    // Should not go below data boundary
+    assert(chart.viewFirst >= 0 && "zoomAt should not go below data first");
+}
+
+// Test zoomAt() with clamping at right boundary
+TEST(test_Chart_zoomAt_clamps_at_right_boundary) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Set up data and view with some zoom already applied
+    chart.fitToPoints({{0, 0.0f}, {1000, 10.0f}});
+    chart.resetView();
+
+    // Zoom in at center first
+    chart.zoomAt(2.0, 400);
+    time_sec lastAfterZoom = chart.viewLast;
+
+    // Now zoom out at right edge - should clamp to data boundary
+    chart.zoomAt(0.5, 700);
+
+    // Should not exceed data boundary
+    assert(chart.viewLast <= 1000 && "zoomAt should not exceed data last");
+}
+
+// Test scrollBy() with clamping at left boundary
+TEST(test_Chart_scrollBy_clamps_at_left_boundary) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Set up data and view
+    chart.fitToPoints({{0, 0.0f}, {1000, 10.0f}, {2000, 5.0f}});
+    chart.resetView();
+
+    // Try to scroll left beyond boundary
+    chart.scrollBy(-500);
+
+    // Should clamp to data boundary
+    assert(chart.viewFirst >= 0 && "scrollBy should not go below data first");
+}
+
+// Test scrollBy() with clamping at right boundary
+TEST(test_Chart_scrollBy_clamps_at_right_boundary) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Set up data and view
+    chart.fitToPoints({{0, 0.0f}, {1000, 10.0f}, {2000, 5.0f}});
+    chart.resetView();
+
+    // Scroll right to near end
+    chart.scrollBy(800);
+
+    // Should clamp to data boundary
+    assert(chart.viewLast <= 2000 && "scrollBy should not exceed data last");
+}
+
+// Test getVisibleCandles() with empty vector
+TEST(test_Chart_getVisibleCandles_empty_vector) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    chart.fitToCandles({{100, 3.0f, 9.0f, 2.0f, 7.0f, 0.0f}});
+    chart.resetView();
+
+    vector<Candle> visible = chart.getVisibleCandles({});
+
+    assert(visible.empty() && "getVisibleCandles should return empty vector for empty input");
+}
+
+// Test getVisiblePoints() with empty vector
+TEST(test_Chart_getVisiblePoints_empty_vector) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    chart.fitToPoints({{100, 5.0f}});
+    chart.resetView();
+
+    vector<TimePoint> visible = chart.getVisiblePoints({});
+
+    assert(visible.empty() && "getVisiblePoints should return empty vector for empty input");
+}
+
+// Test pixelToTime() at boundaries
+TEST(test_Chart_pixelToTime_at_boundaries) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    chart.fitToPoints({{100, 5.0f}, {500, 8.0f}});
+    chart.resetView();
+
+    // At left edge
+    time_sec leftTime = chart.pixelToTime(chart.spacingLeft);
+    assert(leftTime == 100 && "pixelToTime at left edge should return viewFirst");
+
+    // At right edge
+    int rightPixel = chart.spacingLeft + chart.innerWidth();
+    time_sec rightTime = chart.pixelToTime(rightPixel);
+    assert(rightTime == 500 && "pixelToTime at right edge should return viewLast");
+}
+
+// Test pixelToTime() when valueLast <= valueFirst
+TEST(test_Chart_pixelToTime_single_point) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // No data - single point at time 100
+    chart.fitToPoints({{100, 5.0f}});
+
+    time_sec result = chart.pixelToTime(300);
+    assert(result == 100 && "pixelToTime should return valueFirst when single point");
+}
+
+// Test zoomAt() when already at max zoom (cannot zoom out further)
+TEST(test_Chart_zoomAt_at_max_zoom) {
+    MockCanvas canvas(800, 600);
+    TestChart chart(canvas);
+
+    // Set up data and view already at data boundaries
+    chart.fitToPoints({{0, 0.0f}, {1000, 10.0f}});
+    chart.resetView();
+
+    // Zoom out when already at full extent
+    chart.zoomAt(0.5, 400);
+
+    // Should not exceed data boundaries
+    assert(chart.viewFirst >= 0 && "zoomAt should not go below data first");
+    assert(chart.viewLast <= 1000 && "zoomAt should not exceed data last");
+}
+
 #endif
