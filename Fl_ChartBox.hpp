@@ -62,6 +62,8 @@ public:
         pointsSerieses[pane].push_back(pointSeries);
     }
 
+    // LCOV_EXCL_START
+    // Coverage excluded - draw() requires GUI display environment
     void draw() override {
         Fl_CanvasBox::draw(); // Call the base class draw method (draws the box itself)
         
@@ -106,8 +108,9 @@ public:
                 );
         }
     }
+    // LCOV_EXCL_STOP
 
-private:
+ protected:
     Chart chart;
 
     vector<vector<CandleSeries>> candlesSerieses;
