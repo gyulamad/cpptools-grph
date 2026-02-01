@@ -47,8 +47,8 @@ TEST(test_ChartGroup_add_and_remove_chart) {
     assert(chart1.viewFirst > 0 && "ChartGroup scroll should affect chart1 after chart2 removed");
 }
 
-// Test ChartGroup canZoomOut()
-TEST(test_ChartGroup_canZoomOut) {
+// Test ChartGroup zoomAt with zoom out
+TEST(test_ChartGroup_zoomOut) {
     MockCanvas canvas1(800, 600);
     MockCanvas canvas2(800, 600);
     TestChart chart1(canvas1);
@@ -63,11 +63,9 @@ TEST(test_ChartGroup_canZoomOut) {
     group.addChart(chart1);
     group.addChart(chart2);
 
-    // chart1 is zoomed in to subset of data, so canZoomOut should return true
+    // chart1 is zoomed in to subset of data
     chart1.viewFirst = 200;
     chart1.viewLast = 800;
-
-    assert(group.canZoomOut() && "ChartGroup canZoomOut should return true when any chart has data outside view");
 
     // Zoom out via group - should work
     group.zoomAt(0.5, 400);
@@ -76,8 +74,8 @@ TEST(test_ChartGroup_canZoomOut) {
     assert(chart1.viewFirst < 200 || chart1.viewLast > 800 && "ChartGroup zoomAt should zoom out when factor < 1");
 }
 
-// Test ChartGroup zoomAt with factor < 1 when cannot zoom out
-TEST(test_ChartGroup_zoomOut_prevented) {
+// Test ChartGroup zoomAt with factor < 1 when at full extent
+TEST(test_ChartGroup_zoomOut_at_full_extent) {
     MockCanvas canvas(800, 600);
     TestChart chart(canvas);
 
@@ -87,12 +85,12 @@ TEST(test_ChartGroup_zoomOut_prevented) {
     ChartGroup group;
     group.addChart(chart);
 
-    // Try to zoom out when view equals data - should be prevented
+    // Try to zoom out when view equals data - should clamp to data boundaries
     group.zoomAt(0.5, 400);
 
-    // View should not change since cannot zoom out further
-    assert(chart.viewFirst == 0 && "ChartGroup zoomAt(0.5) should be prevented when cannot zoom out");
-    assert(chart.viewLast == 1000 && "ChartGroup zoomAt(0.5) should be prevented when cannot zoom out");
+    // View should be clamped to data boundaries
+    assert(chart.viewFirst == 0 && "ChartGroup zoomAt(0.5) should clamp to data boundaries");
+    assert(chart.viewLast == 1000 && "ChartGroup zoomAt(0.5) should clamp to data boundaries");
 }
 
 // Test ChartGroup scrollBy affects all charts

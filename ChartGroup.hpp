@@ -21,9 +21,8 @@ public:
     }
     
     void zoomAt(double factor, int pixelX) {
-        // Check if we can zoom out (any chart has data outside view)
-        if (factor < 1.0 && !canZoomOut()) return;
-        
+        DBG("ChartGroup::zoomAt() - factor=" + to_string(factor) + ", pixelX=" + to_string(pixelX));
+        DBG("ChartGroup::zoomAt() - applying zoom to " + to_string(charts.size()) + " charts");
         for (Chart* chart : charts) {
             chart->zoomAt(factor, pixelX);
         }
@@ -35,14 +34,6 @@ public:
         }
     }
     
-    // Check if any chart has data outside current view
-    bool canZoomOut() const {
-        for (const Chart* chart : charts) {
-            if (chart->hasDataOutsideView()) return true;
-        }
-        return false;
-    }
-    
-private:
+    private:
     vector<Chart*> charts;
 };

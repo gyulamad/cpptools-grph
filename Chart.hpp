@@ -2,6 +2,7 @@
 
 #include "../misc/EGA_COLORS.hpp"
 #include "../misc/Canvas.hpp"
+#include "../misc/Logger.hpp"
 #include "TimePoint.hpp"
 #include <cmath>
 #include "../trading/Candle.hpp"
@@ -50,8 +51,8 @@ public:
         valueLast = numeric_limits<time_sec>::min();
         valueUpper = -numeric_limits<float>::infinity();
         valueLower = numeric_limits<float>::infinity();
-        viewFirst = 0;
-        viewLast = 0;
+        // NOTE: Do NOT reset viewFirst/viewLast here - view persists across draw calls
+        // The view is only initialized via resetView() or modified via zoomAt()/scrollBy()
     }
 
     void fitToCandles(const vector<Candle>& candles) {
@@ -96,37 +97,53 @@ public:
     time_sec getViewFirst() const { return viewFirst; }
     time_sec getViewLast() const { return viewLast; }
     bool isViewInitialized() const { return viewInitialized; }
+    
+    // Getters for data bounds (for use by Fl_ChartBox)
+    time_sec getValueFirst() const { return valueFirst; }
+    time_sec getValueLast() const { return valueLast; }
+    void setValueFirst(time_sec v) { valueFirst = v; }
+    void setValueLast(time_sec v) { valueLast = v; }
 
     // Check if any data is outside visible view
     bool hasDataOutsideView() const {
         return valueFirst < viewFirst || valueLast > viewLast;
     }
-
+    
     // Get visible subset of candles
     vector<Candle> getVisibleCandles(const vector<Candle>& candles) const {
-        // If view not set (0,0), return empty (caller should call resetView first)
-        if (viewFirst == 0 && viewLast == 0) return vector<Candle>();
+        // If view not initialized, return all candles (view not yet set)
+        if (!viewInitialized) {
+            DBG("Chart::getVisibleCandles() - view not initialized, returning all candles");
+            return candles;
+        }
         
+        DBG("Chart::getVisibleCandles() - viewFirst=" + to_string(viewFirst) + ", viewLast=" + to_string(viewLast) + ", dataFirst=" + to_string(valueFirst) + ", dataLast=" + to_string(valueLast));
         vector<Candle> visible;
         for (const Candle& candle : candles) {
             time_sec t = candle.getTime();
             if (t >= viewFirst && t <= viewLast)
                 visible.push_back(candle);
         }
+        DBG("Chart::getVisibleCandles() - filtered " + to_string(visible.size()) + " of " + to_string(candles.size()) + " candles");
         return visible;
     }
 
     // Get visible subset of points
     vector<TimePoint> getVisiblePoints(const vector<TimePoint>& points) const {
-        // If view not set (0,0), return empty (caller should call resetView first)
-        if (viewFirst == 0 && viewLast == 0) return vector<TimePoint>();
+        // If view not initialized, return all points (view not yet set)
+        if (!viewInitialized) {
+            DBG("Chart::getVisiblePoints() - view not initialized, returning all points");
+            return points;
+        }
         
+        DBG("Chart::getVisiblePoints() - viewFirst=" + to_string(viewFirst) + ", viewLast=" + to_string(viewLast));
         vector<TimePoint> visible;
         for (const TimePoint& point : points) {
             time_sec t = point.getTime();
             if (t >= viewFirst && t <= viewLast)
                 visible.push_back(point);
         }
+        DBG("Chart::getVisiblePoints() - filtered " + to_string(visible.size()) + " of " + to_string(points.size()) + " points");
         return visible;
     }
 
@@ -135,25 +152,37 @@ public:
         // First get visible subset, then update bounds
         vector<Candle> visible = getVisibleCandles(candles);
         
-        valueFirst = numeric_limits<time_sec>::max();
-        valueLast = numeric_limits<time_sec>::min();
-        valueLower = numeric_limits<float>::infinity();
-        valueUpper = -numeric_limits<float>::infinity();
+        // If no visible candles, preserve original bounds
+        if (visible.empty()) {
+            DBG("Chart::fitToVisibleCandles() - no visible candles, preserving original bounds");
+            return;
+        }
+        
+        DBG("Chart::fitToVisibleCandles() - fitting Y-axis to " + to_string(visible.size()) + " visible candles");
+        
+        // Only update Y-axis bounds (valueLower/valueUpper), NOT time bounds (valueFirst/valueLast)
+        // valueFirst/valueLast should preserve the full data range for zoom calculations
+        float newValueLower = numeric_limits<float>::infinity();
+        float newValueUpper = -numeric_limits<float>::infinity();
         
         for (const Candle& candle : visible) {
-            const time_sec candleTime = candle.getTime();
             const float candleLow = candle.getLow();
             if (isnan(candleLow)) continue;
             const float candleHigh = candle.getHigh();
             if (isnan(candleHigh)) continue;
             
-            // Update time bounds
-            if (candleTime < valueFirst) valueFirst = candleTime;
-            if (candleTime > valueLast) valueLast = candleTime;
-            
-            // Update value bounds
-            if (candleLow < valueLower) valueLower = candleLow;
-            if (candleHigh > valueUpper) valueUpper = candleHigh;
+            // Update value bounds only
+            if (candleLow < newValueLower) newValueLower = candleLow;
+            if (candleHigh > newValueUpper) newValueUpper = candleHigh;
+        }
+        
+        // Only update if we found valid values
+        if (newValueLower != numeric_limits<float>::infinity()) {
+            valueLower = newValueLower;
+            valueUpper = newValueUpper;
+            DBG("Chart::fitToVisibleCandles() - new Y bounds: valueLower=" + to_string(valueLower) + ", valueUpper=" + to_string(valueUpper));
+        } else {
+            DBG("Chart::fitToVisibleCandles() - no valid candle values found");
         }
     }
 
@@ -162,29 +191,51 @@ public:
         // First get visible subset, then update bounds
         vector<TimePoint> visible = getVisiblePoints(points);
         
-        valueFirst = numeric_limits<time_sec>::max();
-        valueLast = numeric_limits<time_sec>::min();
-        valueLower = numeric_limits<float>::infinity();
-        valueUpper = -numeric_limits<float>::infinity();
+        // If no visible points, preserve original bounds
+        if (visible.empty()) {
+            DBG("Chart::fitToVisiblePoints() - no visible points, preserving original bounds");
+            return;
+        }
+        
+        DBG("Chart::fitToVisiblePoints() - fitting Y-axis to " + to_string(visible.size()) + " visible points");
+        
+        // Only update Y-axis bounds (valueLower/valueUpper), NOT time bounds (valueFirst/valueLast)
+        // valueFirst/valueLast should preserve the full data range for zoom calculations
+        float newValueLower = numeric_limits<float>::infinity();
+        float newValueUpper = -numeric_limits<float>::infinity();
         
         for (const TimePoint& point : visible) {
-            const time_sec pointTime = point.getTime();
             const float pointValue = point.getValue();
             if (isnan(pointValue)) continue;
             
-            // Update time bounds
-            if (pointTime < valueFirst) valueFirst = pointTime;
-            if (pointTime > valueLast) valueLast = pointTime;
-            
-            // Update value bounds
-            if (pointValue < valueLower) valueLower = pointValue;
-            if (pointValue > valueUpper) valueUpper = pointValue;
+            // Update value bounds only
+            if (pointValue < newValueLower) newValueLower = pointValue;
+            if (pointValue > newValueUpper) newValueUpper = pointValue;
+        }
+        
+        // Only update if we found valid values
+        if (newValueLower != numeric_limits<float>::infinity()) {
+            valueLower = newValueLower;
+            valueUpper = newValueUpper;
+            DBG("Chart::fitToVisiblePoints() - new Y bounds: valueLower=" + to_string(valueLower) + ", valueUpper=" + to_string(valueUpper));
+        } else {
+            DBG("Chart::fitToVisiblePoints() - no valid point values found");
         }
     }
 
+    // Check if data bounds are valid (valueLast > valueFirst)
+    bool hasValidDataBounds() const {
+        return valueLast > valueFirst && valueFirst > 0 && valueLast > 0;
+    }
+    
+    // Check if view bounds are valid (viewLast > viewFirst)
+    bool hasValidViewBounds() const {
+        return viewLast > viewFirst && viewFirst > 0 && viewLast > 0;
+    }
+    
     // Convert pixel to time
     time_sec pixelToTime(int pixelX) const {
-        if (valueLast <= valueFirst) return valueFirst;
+        if (!hasValidDataBounds()) return valueFirst;
         
         double ratio = (double)(pixelX - spacingLeft) / innerWidth();
         return valueFirst + (time_sec)(ratio * (valueLast - valueFirst));
@@ -192,15 +243,35 @@ public:
 
     // Zoom at pixel position (factor > 1 = zoom in, factor < 1 = zoom out)
     void zoomAt(double factor, int pixelX) {
+        // Validate bounds first
+        DBG("Chart::zoomAt() - entry: valueFirst=" + to_string(valueFirst) + ", valueLast=" + to_string(valueLast) + ", viewFirst=" + to_string(viewFirst) + ", viewLast=" + to_string(viewLast) + ", viewInitialized=" + to_string(viewInitialized));
+        if (!hasValidDataBounds()) {
+            DBG("Chart::zoomAt() - invalid data bounds, skipping");
+            return;
+        }
+        if (!hasValidViewBounds()) {
+            DBG("Chart::zoomAt() - invalid view bounds, skipping");
+            return;
+        }
+        
         time_sec visibleDuration = viewLast - viewFirst;
+        time_sec dataDuration = valueLast - valueFirst;
+        
+        DBG("Chart::zoomAt() - factor=" + to_string(factor) + ", visibleDuration=" + to_string(visibleDuration) + ", dataDuration=" + to_string(dataDuration));
+        
         time_sec newDuration = (time_sec)(visibleDuration / factor);
         
         // Clamp to data boundaries - max zoom out when all data is visible
-        time_sec dataDuration = valueLast - valueFirst;
         if (newDuration > dataDuration) newDuration = dataDuration;
         
         // Calculate relative X position (0.0 to 1.0)
         double relativeX = (double)(pixelX - spacingLeft) / innerWidth();
+        
+        // Guard against invalid relativeX
+        if (relativeX < 0.0 || relativeX > 1.0) {
+            DBG("Chart::zoomAt() - invalid relativeX=" + to_string(relativeX) + ", clamping to 0.5");
+            relativeX = 0.5;
+        }
         
         // Edge quarter logic: stick to edges
         if (relativeX < 0.25) {
@@ -214,8 +285,18 @@ public:
         } else {
             // Center on pixel position
             time_sec centerTime = valueFirst + (time_sec)(relativeX * dataDuration);
-            viewFirst = centerTime - (time_sec)(newDuration * relativeX);
-            viewLast = viewFirst + newDuration;
+            
+            // Guard against overflow in newDuration * relativeX
+            double newDurationDouble = (double)newDuration;
+            double offsetDouble = newDurationDouble * relativeX;
+            if (offsetDouble > (double)numeric_limits<time_sec>::max() || offsetDouble < (double)numeric_limits<time_sec>::min()) {
+                DBG("Chart::zoomAt() - overflow risk in offset calculation, using simplified centering");
+                viewFirst = centerTime - newDuration / 2;
+                viewLast = centerTime + newDuration / 2;
+            } else {
+                viewFirst = centerTime - (time_sec)offsetDouble;
+                viewLast = viewFirst + newDuration;
+            }
             
             // Clamp to data boundaries (only right side needs checking in middle case)
             if (viewLast > valueLast) {
@@ -223,11 +304,13 @@ public:
                 viewFirst = viewLast - newDuration;
             }
         }
+        
+        DBG("Chart::zoomAt() - new view: [" + to_string(viewFirst) + ", " + to_string(viewLast) + "]");
     }
 
     // Scroll by delta in pixels (mobile-style: drag left moves chart right)
     void scrollBy(double deltaPixels) {
-        if (valueLast <= valueFirst) return;
+        if (!hasValidDataBounds() || !hasValidViewBounds()) return;
         
         // Calculate seconds per pixel based on FULL data range
         double secondsPerPixel = (double)(valueLast - valueFirst) / innerWidth();
@@ -296,7 +379,7 @@ public:
     ) {
         // If we don't have a valid time range or drawable width, bail out
         if (points.size() < 2) return;
-        if (valueLast < valueFirst) return;
+        if (!hasValidDataBounds()) return;
         int widthPx = innerWidth();
         if (widthPx <= 0) return;
 
@@ -335,7 +418,7 @@ public:
     ) {
         // If we don't have a valid time range or drawable width, bail out
         if (points.size() < 2) return;
-        if (valueLast < valueFirst) return;
+        if (!hasValidDataBounds()) return;
         int widthPx = innerWidth();
         if (widthPx <= 0) return;
 
@@ -484,9 +567,9 @@ protected:
     int timeToX(time_sec time) const {
         if (valueLast <= valueFirst) return innerWidth() / 2; // Avoid division by zero
         
-        // Use view window instead of full data range
-        time_sec viewStart = viewFirst ? viewFirst : valueFirst;
-        time_sec viewEnd = viewLast ? viewLast : valueLast;
+        // Use view window if initialized, otherwise use full data range
+        time_sec viewStart = viewInitialized ? viewFirst : valueFirst;
+        time_sec viewEnd = viewInitialized ? viewLast : valueLast;
         
         if (viewEnd <= viewStart) return innerWidth() / 2;
         

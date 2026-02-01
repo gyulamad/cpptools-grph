@@ -185,17 +185,39 @@ public:
 
  protected:
     void onMouseWheel(int pixelX, int deltaY) {
+        DBG("Fl_ChartBox::onMouseWheel() - pixelX=" + to_string(pixelX) + ", deltaY=" + to_string(deltaY));
+        
         double factor = deltaY > 0 ? chart.getZoomInFactor() : chart.getZoomOutFactor();
+        DBG("Fl_ChartBox::onMouseWheel() - factor=" + to_string(factor) + ", viewInitialized=" + to_string(chart.isViewInitialized()));
+        
+        // Capture original data bounds BEFORE any drawing modifies them
+        time_sec originalValueFirst = chart.getValueFirst();
+        time_sec originalValueLast = chart.getValueLast();
+        DBG("Fl_ChartBox::onMouseWheel() - original data bounds: [" + to_string(originalValueFirst) + ", " + to_string(originalValueLast) + "]");
+        
+        // Temporarily restore original bounds for zoom calculation
+        time_sec savedValueFirst = chart.getValueFirst();
+        time_sec savedValueLast = chart.getValueLast();
+        chart.setValueFirst(originalValueFirst);
+        chart.setValueLast(originalValueLast);
         
         if (group) {
             group->zoomAt(factor, pixelX);
         } else {
             chart.zoomAt(factor, pixelX);
         }
+        
+        // Restore the saved bounds (drawing will update them again)
+        chart.setValueFirst(savedValueFirst);
+        chart.setValueLast(savedValueLast);
+        
         redraw();
     }
     
     void onDrag(int pixelX, int deltaX) {
+        // No previous drag position or view not initialized, ignore
+        if (lastDragX == 0 || !chart.isViewInitialized()) return;
+        
         if (group) {
             group->scrollBy(deltaX);
         } else {

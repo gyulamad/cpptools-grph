@@ -500,6 +500,9 @@ TEST(test_Fl_ChartBox_onDrag_no_op_when_no_previous_x) {
     CandleSeries candleSeries(candles, SymbolInterval("BTCUSDT", 60), 100, 100);
     chartBox.addCandleSeries(candleSeries);
     
+    // Initialize the view properly before testing
+    chartBox.chart.resetView();
+    
     int initialFirst = chartBox.chart.getViewFirst();
     
     // Don't set lastDragX (stays 0 from constructor)
@@ -508,6 +511,7 @@ TEST(test_Fl_ChartBox_onDrag_no_op_when_no_previous_x) {
     // onDrag should not scroll when lastDragX is 0
     chartBox.onDrag(50, -20);
     
+    // Since lastDragX is 0, onDrag should return early and not modify view
     assert(chartBox.chart.getViewFirst() == initialFirst && "viewFirst should not change when lastDragX is 0");
 }
 
