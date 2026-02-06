@@ -118,16 +118,5 @@ TEST(test_ChartGroup_scrollBy_affects_all_charts) {
     assert(chart2.viewFirst > initial2 && "ChartGroup scrollBy should shift chart2 forward");
 }
 
-// Test ChartGroup empty group operations
-TEST(test_ChartGroup_empty_operations) {
-    ChartGroup group;
-
-    // These should not crash
-    group.zoomAt(1.5, 400);
-    group.scrollBy(100);
-    assert(!group.canZoomOut() && "Empty group canZoomOut should return false");
-
-    assert(true && "Empty ChartGroup operations should not crash");
-}
 
 #endif

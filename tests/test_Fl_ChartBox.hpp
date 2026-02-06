@@ -350,7 +350,7 @@ TEST(test_Fl_ChartBox_onMouseWheel_zoom_in) {
     int initialFirst = chartBox.chart.getViewFirst();
     int initialLast = chartBox.chart.getViewLast();
     
-    // Trigger zoom in (dy < 0 means scroll up/zoom in)
+    // Trigger zoom in (dy < 0 means scroll up/zoom in) - now correctly zooms in
     chartBox.onMouseWheel(400, -1);
     
     assert(chartBox.chart.getViewFirst() >= initialFirst && "viewFirst should be >= initial after zoom in");

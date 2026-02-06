@@ -185,15 +185,11 @@ public:
 
  protected:
     void onMouseWheel(int pixelX, int deltaY) {
-        DBG("Fl_ChartBox::onMouseWheel() - pixelX=" + to_string(pixelX) + ", deltaY=" + to_string(deltaY));
-        
-        double factor = deltaY > 0 ? chart.getZoomInFactor() : chart.getZoomOutFactor();
-        DBG("Fl_ChartBox::onMouseWheel() - factor=" + to_string(factor) + ", viewInitialized=" + to_string(chart.isViewInitialized()));
+        double factor = deltaY < 0 ? chart.getZoomInFactor() : chart.getZoomOutFactor();
         
         // Capture original data bounds BEFORE any drawing modifies them
         time_sec originalValueFirst = chart.getValueFirst();
         time_sec originalValueLast = chart.getValueLast();
-        DBG("Fl_ChartBox::onMouseWheel() - original data bounds: [" + to_string(originalValueFirst) + ", " + to_string(originalValueLast) + "]");
         
         // Temporarily restore original bounds for zoom calculation
         time_sec savedValueFirst = chart.getValueFirst();
