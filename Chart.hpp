@@ -293,13 +293,15 @@ public:
         }
     }
 
-    // Scroll by delta in pixels (mobile-style: drag left moves chart right)
+    // Scroll by delta in pixels (drag left moves chart left - content follows finger)
     void scrollBy(double deltaPixels) {
         if (!hasValidDataBounds() || !hasValidViewBounds()) return;
         
-        // Calculate seconds per pixel based on FULL data range
-        double secondsPerPixel = (double)(valueLast - valueFirst) / innerWidth();
-        time_sec deltaTime = (time_sec)(deltaPixels * secondsPerPixel);
+        // Calculate seconds per pixel based on VISIBLE view range (not full data range)
+        // This ensures 1:1 mapping between mouse movement and chart movement
+        double secondsPerPixel = (double)(viewLast - viewFirst) / innerWidth();
+        // Invert deltaPixels so drag direction matches chart movement
+        time_sec deltaTime = (time_sec)(-deltaPixels * secondsPerPixel);
         
         // Calculate new view bounds
         time_sec newViewFirst = viewFirst + deltaTime;
@@ -328,9 +330,16 @@ public:
         double shoulderSpacing = 0.1
     ) {
         //  Calculate the candle body with in pixels (double) from interval
-        time_sec totalSeconds = valueLast - valueFirst; // Calculate the total time span of the chart        
+        // Use the VISIBLE time range (view window), not the full data range
+        time_sec visibleDuration = viewLast - viewFirst; // Calculate the visible time span of the chart        
         int canvasWidth = innerWidth(); // Use inner width instead of full canvas width
-        double candleBodyWidth = (double)canvasWidth * interval / totalSeconds; // Calculate the width of one interval in pixels
+        double candleBodyWidth = (double)canvasWidth * interval / visibleDuration; // Calculate the width of one interval in pixels
+        
+        // DEBUG: Log the LOD calculation
+        // std::cerr << "DEBUG showCandles: viewFirst=" << viewFirst << " viewLast=" << viewLast 
+        //           << " visibleDuration=" << visibleDuration << " canvasWidth=" << canvasWidth 
+        //           << " interval=" << interval << " candleBodyWidth=" << candleBodyWidth << std::endl;        
+        
         
         // Select the right level of details (LOD)
         if (candleBodyWidth > 5) { // Show each candles...
