@@ -187,25 +187,11 @@ public:
     void onMouseWheel(int pixelX, int deltaY) {
         double factor = deltaY < 0 ? chart.getZoomInFactor() : chart.getZoomOutFactor();
         
-        // Capture original data bounds BEFORE any drawing modifies them
-        time_sec originalValueFirst = chart.getValueFirst();
-        time_sec originalValueLast = chart.getValueLast();
-        
-        // Temporarily restore original bounds for zoom calculation
-        time_sec savedValueFirst = chart.getValueFirst();
-        time_sec savedValueLast = chart.getValueLast();
-        chart.setValueFirst(originalValueFirst);
-        chart.setValueLast(originalValueLast);
-        
         if (group) {
             group->zoomAt(factor, pixelX);
         } else {
             chart.zoomAt(factor, pixelX);
         }
-        
-        // Restore the saved bounds (drawing will update them again)
-        chart.setValueFirst(savedValueFirst);
-        chart.setValueLast(savedValueLast);
         
         redraw();
     }

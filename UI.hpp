@@ -64,7 +64,6 @@ feel free to contribute with an issue or pull request to this repository!
 #include "TimePointSeries.hpp"
 #include "Fl_ChartBox.hpp"
 #include "../misc/safe.hpp"
-#include "../misc/Logger.hpp"
 
 using namespace std;
 
@@ -402,7 +401,17 @@ public:
             chartBox->clearAllSerieses();
     }
 
-    void joinScroll() {
+    void joinScroll(bool syncXAxis = true) {
+        // Set synchronization mode
+        group.setSyncXAxis(syncXAxis);
+        
+        // Set up callback to redraw all charts when sync happens
+        group.onSync = [this]() {
+            for (UI_ChartBox* chartBox : chartBoxes) {
+                chartBox->flchart()->redraw();
+            }
+        };
+        
         // Add all charts to the group
         for (UI_ChartBox* chartBox : chartBoxes) {
             group.addChart(chartBox->flchart()->getChart());
@@ -414,6 +423,8 @@ public:
             flChart->setChartGroup(&group);
         }
     }
+    
+    ChartGroup& getChartGroup() { return group; }
     
 protected:
     int spacing, nextChartTop, /*chartHeight,*/ chartWidth;

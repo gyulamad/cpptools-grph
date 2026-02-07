@@ -97,6 +97,10 @@ public:
     time_sec getViewLast() const { return viewLast; }
     bool isViewInitialized() const { return viewInitialized; }
     
+    // Setters for view bounds (used by ChartGroup for synchronization)
+    void setViewFirst(time_sec v) { viewFirst = v; }
+    void setViewLast(time_sec v) { viewLast = v; viewInitialized = true; }
+    
     // Getters for data bounds (for use by Fl_ChartBox)
     time_sec getValueFirst() const { return valueFirst; }
     time_sec getValueLast() const { return valueLast; }
